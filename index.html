@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>GARCHINA Asset Center</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">IT ASSET MANAGEMENT</div>
+        <h1>GARCHINA Asset Center</h1>
+        <p class="subtitle">Endpoint inventory overview powered by Cloudflare D1.</p>
+      </div>
+      <div class="top-actions">
+        <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
+        <button id="exportBtn" class="btn" type="button">导出 CSV</button>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span class="stat-label">设备总数</span>
+        <strong id="statTotal">0</strong>
+        <span class="stat-note">当前数据库记录</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">HP 设备</span>
+        <strong id="statHP">0</strong>
+        <span class="stat-note">Manufacturer = HP</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Windows 11</span>
+        <strong id="statWin11">0</strong>
+        <span class="stat-note">按系统名称识别</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">24h 内上报</span>
+        <strong id="statRecent">0</strong>
+        <span class="stat-note">最近 24 小时有更新</span>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <label for="searchInput">搜索设备</label>
+          <input id="searchInput" type="search" placeholder="SN / 计算机名 / 用户 / VPN 用户 / 邮箱 / 型号" autocomplete="off">
+        </div>
+        <div class="status-wrap">
+          <div class="page-size-wrap"><label for="pageSizeSelect">每页</label><select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select><span>条</span></div>
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">准备加载</span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="deviceTable">
+          <thead>
+            <tr>
+              <th data-key="computer_name"><button class="sort-btn" type="button" tabindex="-1"><span>计算机名</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="serial_number"><button class="sort-btn" type="button" tabindex="-1"><span>SN</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="windows_user"><button class="sort-btn" type="button" tabindex="-1"><span>当前用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="forticlient_user"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="forticlient_last_seen"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 最后活动</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="outlook_account"><button class="sort-btn" type="button" tabindex="-1"><span>Outlook 邮箱</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="manufacturer"><button class="sort-btn" type="button" tabindex="-1"><span>厂商</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="model"><button class="sort-btn" type="button" tabindex="-1"><span>型号</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="os_name"><button class="sort-btn" type="button" tabindex="-1"><span>操作系统</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="report_time"><button class="sort-btn" type="button" tabindex="-1"><span>最后上报</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="script_version"><button class="sort-btn" type="button" tabindex="-1"><span>脚本版本</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+            </tr>
+          </thead>
+          <tbody id="deviceBody">
+            <tr><td colspan="11" class="empty-state">正在加载设备数据…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel-footer">
+        <span id="resultCount">0 台设备</span>
+        <div id="pagination" class="pagination">
+          <button id="prevPageBtn" class="page-btn" type="button">上一页</button>
+          <span id="pageInfo">第 1 / 1 页</span>
+          <button id="nextPageBtn" class="page-btn" type="button">下一页</button>
+        </div>
+        <span id="lastUpdated">尚未刷新</span>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

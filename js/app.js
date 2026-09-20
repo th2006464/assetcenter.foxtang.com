@@ -155,10 +155,22 @@ function exportCsv(){
   a.href=url;a.download=`asset-center-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
+function setTheme(theme){
+  document.documentElement.dataset.theme=theme;
+  localStorage.setItem("asset-center-theme",theme);
+  const isDark=theme==="dark";
+  $("themeToggle").setAttribute("aria-pressed",String(isDark));
+  $("themeToggle").setAttribute("aria-label",isDark?"切换浅色主题":"切换深色主题");
+  $("themeToggle").textContent=isDark?"◑":"◐";
+}
+
 document.addEventListener("DOMContentLoaded",()=>{
+  const savedTheme=localStorage.getItem("asset-center-theme");
+  setTheme(savedTheme||((matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"));
   $("searchInput").addEventListener("input",()=>{currentPage=1;render()});
   $("refreshBtn").addEventListener("click",loadDevices);
   $("exportBtn").addEventListener("click",exportCsv);
+  $("themeToggle").addEventListener("click",()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
   $("pageSizeSelect").addEventListener("change",e=>{pageSize=e.target.value==="all"?0:Number(e.target.value);currentPage=1;render()});
   $("prevPageBtn").addEventListener("click",()=>{if(currentPage>1){currentPage--;render()}});
   $("nextPageBtn").addEventListener("click",()=>{currentPage++;render()});

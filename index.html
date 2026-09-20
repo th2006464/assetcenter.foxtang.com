@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>GARCHINA Asset Center</title>
+  <title>向日葵设备信息看板</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,12 +12,20 @@
     <header class="topbar">
       <div>
         <div class="eyebrow">IT ASSET MANAGEMENT</div>
-        <h1>GARCHINA Asset Center</h1>
+        <h1>向日葵设备信息看板</h1>
         <p class="subtitle">Endpoint inventory overview powered by Cloudflare D1.</p>
       </div>
-      <div class="top-actions">
-        <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
-        <button id="exportBtn" class="btn" type="button">导出 CSV</button>
+      <div class="header-controls">
+        <div class="top-actions" aria-label="数据操作">
+          <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
+          <button id="exportBtn" class="btn" type="button">导出 CSV</button>
+          <button id="themeToggle" class="btn theme-toggle" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
+        </div>
+        <div class="status-wrap">
+          <div class="page-size-wrap"><label for="pageSizeSelect">每页显示</label><select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select><span>条</span></div>
+          <span id="statusDot" class="status-dot"></span>
+          <span id="statusText">准备加载</span>
+        </div>
       </div>
     </header>
 
@@ -49,11 +57,6 @@
         <div class="search-wrap">
           <label for="searchInput">搜索设备</label>
           <input id="searchInput" type="search" placeholder="SN / 计算机名 / 用户 / VPN 用户 / 邮箱 / 型号" autocomplete="off">
-        </div>
-        <div class="status-wrap">
-          <div class="page-size-wrap"><label for="pageSizeSelect">每页</label><select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select><span>条</span></div>
-          <span id="statusDot" class="status-dot"></span>
-          <span id="statusText">准备加载</span>
         </div>
       </div>
 

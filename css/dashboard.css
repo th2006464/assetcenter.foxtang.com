@@ -68,8 +68,8 @@ html[data-theme="dark"]{
 .bar-row.static{cursor:default}
 .bar-label{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar-value{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.bar-track{grid-column:1 / -1;height:9px;border-radius:999px;background:var(--track);overflow:hidden}
-.bar-fill{height:100%;border-radius:999px;transition:width .35s ease}
+.bar-track{grid-column:1 / -1;height:11px;border-radius:999px;background:var(--track);overflow:hidden;display:block}
+.bar-fill{display:block;height:100%;border-radius:999px;transition:width .35s ease}
 .bar-row:hover .bar-label{color:var(--accent)}
 
 /* Tooltip */

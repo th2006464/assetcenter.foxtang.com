@@ -30,14 +30,14 @@ h1{font-size:32px;line-height:1.15;margin:0}
 .stat-note{display:block;color:var(--muted);font-size:12px;margin-top:10px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
 .toolbar{display:flex;align-items:flex-end;gap:16px;padding:18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.search-wrap{flex:1 1 260px;min-width:200px;max-width:560px}
+.search-wrap{flex:1 1 260px;min-width:200px}
 .search-wrap label{display:block;font-size:13px;color:var(--muted);margin-bottom:7px}
 .search-wrap input{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:11px;padding:11px 13px;outline:none}
 .search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 /* 每页显示：与搜索框同一行、同样的输入框外观 */
-.toolbar .page-size-wrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:0;color:var(--muted);font-size:13px;white-space:nowrap}
+.toolbar .page-size-wrap{flex:0 0 auto;margin-left:auto;display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:0;color:var(--muted);font-size:13px;white-space:nowrap}
 .toolbar .page-size-wrap label{display:block;font-size:13px;color:var(--muted)}
-.toolbar .page-size-control{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:10px 13px}
+.toolbar .page-size-control{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:11px;padding:11px 13px}
 .toolbar .page-size-control select{border:0;background:transparent;color:var(--text);font-weight:700;cursor:pointer;outline:none;padding:0 18px 0 2px}
 .toolbar .page-size-control select:focus{color:var(--accent)}
 .toolbar .page-size-control:hover,.toolbar .page-size-control:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12)}

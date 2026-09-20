@@ -16,7 +16,7 @@ h1{font-size:32px;line-height:1.15;margin:0}
 .btn:hover{background:var(--surface-2)}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn-primary:hover{background:var(--accent-hover)}
-.top-actions .btn{border:0;border-radius:0;background:transparent;padding:12px 17px;color:var(--text)}
+.top-actions .btn{border:0;border-radius:0;background:transparent;padding:12px 17px;color:var(--text);text-decoration:none;display:inline-flex;align-items:center}
 .top-actions .btn + .btn{border-left:1px solid var(--line)}
 .top-actions .btn-primary{color:var(--accent)}
 .top-actions .btn:hover{background:var(--surface-2)}

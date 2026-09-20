@@ -1,15 +1,9 @@
-const API_URL = "https://ams.foxtang.com/devices";
 let allDevices = [];
 let sortKey = "report_time";
 let sortAsc = false;
 let pageSize = 20;
 let currentPage = 1;
 
-const $ = id => document.getElementById(id);
-const safe = v => (v ?? "").toString();
-
-function escapeHtml(v){return safe(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
-function parseDate(v){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 function displayValue(v){return safe(v).trim() || "—"}
 function displayVpnUser(v){
   const full=safe(v).trim();
@@ -37,8 +31,8 @@ function timeAgo(v){
 
 function updateStats(data){
   $("statTotal").textContent=data.length;
-  $("statHP").textContent=data.filter(d=>safe(d.manufacturer).toLowerCase().includes("hp")).length;
-  $("statWin11").textContent=data.filter(d=>safe(d.os_name).toLowerCase().includes("windows 11")).length;
+  $("statHP").textContent=data.filter(d=>normalizeVendor(d.manufacturer)==="HP").length;
+  $("statWin11").textContent=data.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   const cutoff=Date.now()-86400000;
   $("statRecent").textContent=data.filter(d=>{const dt=parseDate(d.report_time);return dt&&dt.getTime()>=cutoff}).length;
 }
@@ -155,22 +149,13 @@ function exportCsv(){
   a.href=url;a.download=`asset-center-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
-function setTheme(theme){
-  document.documentElement.dataset.theme=theme;
-  localStorage.setItem("asset-center-theme",theme);
-  const isDark=theme==="dark";
-  $("themeToggle").setAttribute("aria-pressed",String(isDark));
-  $("themeToggle").setAttribute("aria-label",isDark?"切换浅色主题":"切换深色主题");
-  $("themeToggle").textContent=isDark?"◑":"◐";
-}
-
 document.addEventListener("DOMContentLoaded",()=>{
-  const savedTheme=localStorage.getItem("asset-center-theme");
-  setTheme(savedTheme||((matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light"));
+  initTheme();
+  const preset=new URLSearchParams(location.search).get("q");
+  if(preset)$("searchInput").value=preset;
   $("searchInput").addEventListener("input",()=>{currentPage=1;render()});
   $("refreshBtn").addEventListener("click",loadDevices);
   $("exportBtn").addEventListener("click",exportCsv);
-  $("themeToggle").addEventListener("click",()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
   $("pageSizeSelect").addEventListener("change",e=>{pageSize=e.target.value==="all"?0:Number(e.target.value);currentPage=1;render()});
   $("prevPageBtn").addEventListener("click",()=>{if(currentPage>1){currentPage--;render()}});
   $("nextPageBtn").addEventListener("click",()=>{currentPage++;render()});

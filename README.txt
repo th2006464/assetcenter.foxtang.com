@@ -23,10 +23,17 @@ python3 -m http.server 4173
 
 | 文件 | 职责 |
 | --- | --- |
-| `index.html` | 页面骨架、按钮、统计卡、搜索框、设备表格和分页控件 |
+| `index.html` | 明细表页面骨架、按钮、统计卡、搜索框、设备表格和分页控件 |
+| `dashboard.html` | 数据看板页面骨架、KPI 卡和 8 个图表容器 |
 | `css/style.css` | 颜色变量、响应式布局、统一胶囊 UI、表格和明暗主题样式 |
-| `js/app.js` | API 请求、统计、搜索、排序、分页、CSV 导出、主题切换 |
-| `README.txt` | 运维与维护说明 |
+| `css/dashboard.css` | 看板专用：KPI 网格、图表卡片、环形图/条形图、图表配色变量 |
+| `js/common.js` | 两个页面共用：`API_URL`、主题切换、厂商与操作系统归一化 |
+| `js/app.js` | 明细表：API 请求、统计、搜索、排序、分页、CSV 导出 |
+| `js/dashboard.js` | 看板：聚合计算、SVG 环形图与条形图渲染、提示气泡、下钻跳转 |
+| `README.md` | GitHub 仓库首页说明（项目介绍、页面入口、目录结构） |
+| `README.txt` | 运维与维护说明（本文件） |
+
+两个页面都先加载 `js/common.js`，再加载各自的脚本。`common.js` 里的顶层常量和函数不要在页面脚本里重复声明，否则会触发重复定义错误。
 
 ## 数据接口
 
@@ -55,6 +62,12 @@ const API_URL = "https://ams.foxtang.com/devices";
 - **每页显示**：修改 `pageSize`（20、50、100、200 或全部），并回到第 1 页重新渲染。
 - **数据正常 / 读取失败**：由 `loadDevices()` 根据请求状态更新 `#statusText`、`#statusDot` 和对应颜色。
 
+### 页面跳转
+
+- **看板视图**（`index.html`）：跳转到 `dashboard.html`。
+- **设备明细**（`dashboard.html`）：跳转到 `index.html`。
+- 明细表支持 `?q=关键词` 深链：进入页面时会把参数填入搜索框再加载数据，用于承接看板的下钻点击。
+
 ### 表格交互
 
 - 点击任意表头会按该字段排序；再次点击同一字段会切换升序/降序。
@@ -68,9 +81,31 @@ const API_URL = "https://ams.foxtang.com/devices";
 `updateStats(data)` 在每次成功加载数据后运行：
 
 - **设备总数**：数组长度。
-- **HP 设备**：`manufacturer` 忽略大小写后包含 `hp`。
-- **Windows 11**：`os_name` 忽略大小写后包含 `windows 11`。
+- **HP 设备**：`normalizeVendor(manufacturer) === "HP"`，其中 `Hewlett-Packard` 也归一化为 `HP`。
+- **Windows 11**：`osGroup(os_name) === "Windows 11"`，兼容 `os_name` 中版本后缀乱码的情况。
 - **24h 内上报**：`report_time` 可解析且不早于当前时间前 24 小时。
+
+`normalizeVendor()` 与 `osGroup()` 定义在 `js/common.js`，明细表和看板必须共用它们，否则两个页面的厂商数和系统数会不一致。
+
+## 数据看板（dashboard.html）
+
+`js/dashboard.js` 复用同一个 `API_URL`，在浏览器端聚合后渲染，不依赖第三方图表库。
+
+### 指标口径
+
+- **24h 内上报**：`report_time` 距今小于 1 天。
+- **VPN 已接入**：`forticlient_user` 非空。
+- **Windows 11**：同统计卡的 `osGroup()`。
+- **客户端待升级**：`script_version` 不是数据集中的最高版本（按 `.` 分段做数值比较，当前为 `1.2.0`）。
+- **30 天未上报**：`report_time` 距今大于等于 30 天，或无法解析。
+- **设备形态**：按 `model` 关键词判断，命中 `book / thinkpad / latitude` 为笔记本，命中 `tower / desktop / microtower / sff / mt / optiplex / thinkcentre` 为台式机，其余归入“其他”。
+
+### 图表与交互
+
+- 环形图是 SVG `<circle>` 配合 `stroke-dasharray` 绘制，条形图是 CSS 宽度条；两者颜色都取自 `css/dashboard.css` 的 `--chart-1..8` 和 `--ramp-1..5` 变量，切换主题时自动变色。
+- 悬停显示气泡（标签、台数、占比），滚动时自动隐藏。
+- 带 `data-query` 的图例可点击，跳转到 `index.html?q=...`；不可筛选的分组（如 VPN 未接入、设备形态）不带 `data-query`，不做跳转。
+- 接口失败时所有图表容器显示错误占位，KPI 显示为 `—`，状态胶囊变红。
 
 ## 统一胶囊 UI 约定
 
@@ -110,13 +145,16 @@ background: var(--surface);
 
 ## 维护注意事项
 
-1. 修改字段时，同时检查 `getFilteredSorted()`、`compareValues()`、表头、表格渲染和 `exportCsv()` 的字段映射。
-2. 新增按钮时，必须在 `index.html` 添加稳定的 `id`，在 `DOMContentLoaded` 中绑定事件，并在本 README 的“页面按钮与交互”中说明行为。
+1. 修改字段时，同时检查 `getFilteredSorted()`、`compareValues()`、表头、表格渲染和 `exportCsv()` 的字段映射，以及 `js/dashboard.js` 里的聚合口径。
+2. 新增按钮时，必须在 HTML 添加稳定的 `id`，在 `DOMContentLoaded` 中绑定事件，并在本 README 的“页面按钮与交互”中说明行为。
 3. 修改胶囊外观时，优先调整外层容器和 CSS 变量，不要给单个按钮增加独立阴影或不同圆角。
-4. 推送前至少运行：
+4. 新增图表配色时只扩展 `--chart-*` / `--ramp-*` 变量，并同时维护浅色、`html[data-theme="dark"]` 和 `prefers-color-scheme` 三处定义。
+5. 推送前至少运行：
 
 ```bash
+node --check js/common.js
 node --check js/app.js
+node --check js/dashboard.js
 git diff --check
 ```
 

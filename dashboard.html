@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>设备数据看板 · 向日葵设备信息看板</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">IT ASSET ANALYTICS</div>
+        <h1>设备数据看板</h1>
+        <p class="subtitle">Distribution, compliance and activity overview powered by Cloudflare D1.</p>
+      </div>
+      <div class="header-controls">
+        <div class="top-actions" aria-label="数据操作">
+          <a class="btn" href="index.html" title="返回设备明细表">设备明细</a>
+          <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
+          <button id="themeToggle" class="btn theme-toggle" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
+        </div>
+        <div class="status-wrap" aria-label="数据状态">
+          <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="kpi-grid" id="kpiGrid">
+      <article class="kpi-card">
+        <span class="stat-label">设备总数</span>
+        <strong id="kpiTotal">—</strong>
+        <span class="stat-note">数据库记录总数</span>
+      </article>
+      <article class="kpi-card">
+        <span class="stat-label">24h 内上报</span>
+        <strong id="kpiActive24">—</strong>
+        <span class="stat-note" id="kpiActive24Note">占比 —</span>
+      </article>
+      <article class="kpi-card">
+        <span class="stat-label">VPN 已接入</span>
+        <strong id="kpiVpn">—</strong>
+        <span class="stat-note" id="kpiVpnNote">覆盖率 —</span>
+      </article>
+      <article class="kpi-card">
+        <span class="stat-label">Windows 11</span>
+        <strong id="kpiWin11">—</strong>
+        <span class="stat-note" id="kpiWin11Note">占比 —</span>
+      </article>
+      <article class="kpi-card">
+        <span class="stat-label">客户端待升级</span>
+        <strong id="kpiOutdated">—</strong>
+        <span class="stat-note" id="kpiOutdatedNote">仍为旧版本</span>
+      </article>
+      <article class="kpi-card">
+        <span class="stat-label">30 天未上报</span>
+        <strong id="kpiStale">—</strong>
+        <span class="stat-note" id="kpiStaleNote">疑似闲置设备</span>
+      </article>
+    </section>
+
+    <section class="chart-grid">
+      <article class="chart-card">
+        <header class="chart-head"><h2>操作系统版本</h2><span class="chart-note">按 os_name 归类</span></header>
+        <div class="chart-body" id="chartOs"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>设备活跃度</h2><span class="chart-note">依据最后上报时间</span></header>
+        <div class="chart-body" id="chartActivity"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>VPN 接入状态</h2><span class="chart-note">FortiClient 用户</span></header>
+        <div class="chart-body" id="chartVpn"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>厂商分布</h2><span class="chart-note">Manufacturer 归一化</span></header>
+        <div class="chart-body" id="chartVendor"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>设备形态</h2><span class="chart-note">按型号关键词识别</span></header>
+        <div class="chart-body" id="chartForm"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>Outlook 账号绑定</h2><span class="chart-note">Outlook 邮箱是否登记</span></header>
+        <div class="chart-body" id="chartOutlook"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card">
+        <header class="chart-head"><h2>客户端版本分布</h2><span class="chart-note">采集脚本版本</span></header>
+        <div class="chart-body" id="chartAgent"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+      <article class="chart-card chart-card-wide">
+        <header class="chart-head"><h2>机型 Top 10</h2><span class="chart-note">点击可跳转到明细筛选</span></header>
+        <div class="chart-body" id="chartModel"><p class="chart-placeholder">加载中…</p></div>
+      </article>
+    </section>
+
+    <footer class="dash-footer">
+      <span id="lastUpdated">尚未刷新</span>
+      <span class="muted">点击图表中的可筛选项，会带着关键词跳转到设备明细表。</span>
+    </footer>
+  </div>
+
+  <div id="chartTip" class="chart-tip" role="tooltip" aria-hidden="true"></div>
+
+  <script src="js/common.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

@@ -131,7 +131,7 @@ function setNote(id,text,tone){
 function updateKpis(){
   const total=devices.length;
   const active24=devices.filter(d=>{const a=ageDays(d.report_time);return a!==null&&a<1}).length;
-  const vpn=devices.filter(d=>safe(d.forticlient_user).trim()).length;
+  const vpn=devices.filter(d=>{const a=ageDays(d.forticlient_last_seen);return a!==null&&a<1}).length;
   const win11=devices.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   const win10=devices.filter(d=>osGroup(d.os_name)==="Windows 10").length;
   const stale=devices.filter(d=>{const a=ageDays(d.report_time);return a===null||a>=30}).length;
@@ -140,7 +140,7 @@ function updateKpis(){
   $("kpiActive24").textContent=active24;
   setNote("kpiActive24Note",`占比 ${pct(active24,total)}`,active24/total>=0.6?"good":null);
   $("kpiVpn").textContent=vpn;
-  setNote("kpiVpnNote",`覆盖率 ${pct(vpn,total)}`,vpn/total>=0.9?"good":vpn/total<0.6?"alert":null);
+  setNote("kpiVpnNote",`占比 ${pct(vpn,total)}`,null);
   $("kpiWin11").textContent=win11;
   setNote("kpiWin11Note",`占比 ${pct(win11,total)}`,win11/total>=0.9?"good":null);
   $("kpiWin10").textContent=win10;
@@ -166,10 +166,13 @@ function renderCharts(){
   if(unknownAge)activity.push({label:"时间未知",value:unknownAge,color:PALETTE[5]});
   $("chartActivity").innerHTML=barChart(activity,{total});
 
-  const vpnOn=devices.filter(d=>safe(d.forticlient_user).trim()).length;
+  const vpnAccount=devices.filter(d=>safe(d.forticlient_user).trim()).length;
+  const vpnRecent=devices.filter(d=>{const a=ageDays(d.forticlient_last_seen);return a!==null&&a<1}).length;
+  const vpnIdle=Math.max(0,vpnAccount-vpnRecent);
   $("chartVpn").innerHTML=donutChart([
-    {label:"已接入 VPN",value:vpnOn,color:"var(--chart-2)"},
-    {label:"未接入 VPN",value:total-vpnOn,color:"var(--chart-4)"}
+    {label:"24h 内有连接",value:vpnRecent,color:"var(--chart-2)"},
+    {label:"有账号但超 24h",value:vpnIdle,color:"var(--chart-3)"},
+    {label:"未接入 VPN",value:Math.max(0,total-vpnAccount),color:"var(--chart-4)"}
   ],{aria:"VPN 接入状态分布",centerLabel:"台设备"});
 
   const vendors=byCountDesc(countBy(devices,d=>normalizeVendor(d.manufacturer))).map(it=>({...it,query:it.label}));

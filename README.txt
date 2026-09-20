@@ -57,9 +57,10 @@ const API_URL = "https://ams.foxtang.com/devices";
 - **导出 CSV**：触发 `exportCsv()`，导出当前搜索条件和排序结果的全部记录，不受当前分页限制。文件名格式为 `asset-center-YYYY-MM-DD.csv`，并带 UTF-8 BOM，方便 Excel 正确识别中文。
 - **◐ 主题切换**：触发 `setTheme()`，在 `light` 与 `dark` 间切换；选择保存到 `localStorage` 的 `asset-center-theme`，刷新页面后仍保留。
 
-### 数据状态胶囊
+### 顶部胶囊与工具栏
 
-- **每页显示**：修改 `pageSize`（20、50、100、200 或全部），并回到第 1 页重新渲染。
+- 顶部胶囊从左到右是：看板视图 / 刷新数据 / 导出 CSV / 数据状态。`◐` 主题切换是胶囊右侧的独立圆形按钮（`.theme-toggle-standalone`），不放在胶囊内，避免贴近分隔线。
+- **每页显示**位于搜索框右侧（`.toolbar` 内），修改 `pageSize`（20、50、100、200 或全部），并回到第 1 页重新渲染。
 - **数据正常 / 读取失败**：由 `loadDevices()` 根据请求状态更新 `#statusText`、`#statusDot` 和对应颜色。
 
 ### 页面跳转
@@ -94,15 +95,16 @@ const API_URL = "https://ams.foxtang.com/devices";
 ### 指标口径
 
 - **24h 内上报**：`report_time` 距今小于 1 天。
-- **VPN 已接入**：`forticlient_user` 非空。
-- **Windows 11**：同统计卡的 `osGroup()`。
-- **客户端待升级**：`script_version` 不是数据集中的最高版本（按 `.` 分段做数值比较，当前为 `1.2.0`）。
+- **最近24小时VPN接入**：`forticlient_last_seen` 距今小于 1 天（不是“有 VPN 账号”，后者在 VPN 环形图里体现）。
+- **Windows 11 / Windows 10**：同统计卡的 `osGroup()`，Windows 10 用提醒色调标记待迁移。
 - **30 天未上报**：`report_time` 距今大于等于 30 天，或无法解析。
 - **设备形态**：按 `model` 关键词判断，命中 `book / thinkpad / latitude` 为笔记本，命中 `tower / desktop / microtower / sff / mt / optiplex / thinkcentre` 为台式机，其余归入“其他”。
 
 ### 图表与交互
 
 - 环形图是 SVG `<circle>` 配合 `stroke-dasharray` 绘制，条形图是 CSS 宽度条；两者颜色都取自 `css/dashboard.css` 的 `--chart-1..8` 和 `--ramp-1..5` 变量，切换主题时自动变色。
+- VPN 环形图分三段：24h 内有连接 / 有账号但超 24h / 未接入 VPN，用来解释“最近24小时VPN接入”这个 KPI 为什么远小于 VPN 账号数。
+- 条形图宽度按“占设备总数的百分比”计算（不是占最大值的比例），右侧同时显示数量与占比；机型 Top 10 顶部还有 `Top N 合计 X 台 · 占 Y%` 摘要。
 - 悬停显示气泡（标签、台数、占比），滚动时自动隐藏。
 - 带 `data-query` 的图例可点击，跳转到 `index.html?q=...`；不可筛选的分组（如 VPN 未接入、设备形态）不带 `data-query`，不做跳转。
 - 接口失败时所有图表容器显示错误占位，KPI 显示为 `—`，状态胶囊变红。

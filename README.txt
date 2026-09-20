@@ -59,13 +59,14 @@ const API_URL = "https://ams.foxtang.com/devices";
 
 ### 顶部胶囊与工具栏
 
-- 顶部胶囊从左到右是：看板视图 / 刷新数据 / 导出 CSV / 数据状态。`◐` 主题切换是胶囊右侧的独立圆形按钮（`.theme-toggle-standalone`），不放在胶囊内，避免贴近分隔线。
+- 顶部胶囊从左到右是：仪表盘 / 刷新数据 / 导出 CSV / 数据状态。`◐` 主题切换是胶囊右侧的独立圆形按钮（`.theme-toggle-standalone`），不放在胶囊内，避免贴近分隔线。
+- 页面跳转按钮（仪表盘 / 设备明细）带 `btn-primary`，显示为 `--accent` 强调色以突出导航；刷新数据、导出 CSV 保持普通文字色，不使用蓝色。
 - **每页显示**位于搜索框右侧（`.toolbar` 内），修改 `pageSize`（20、50、100、200 或全部），并回到第 1 页重新渲染。
 - **数据正常 / 读取失败**：由 `loadDevices()` 根据请求状态更新 `#statusText`、`#statusDot` 和对应颜色。
 
 ### 页面跳转
 
-- **看板视图**（`index.html`）：跳转到 `dashboard.html`。
+- **仪表盘**（`index.html`）：跳转到 `dashboard.html`。
 - **设备明细**（`dashboard.html`）：跳转到 `index.html`。
 - 明细表支持 `?q=关键词` 深链：进入页面时会把参数填入搜索框再加载数据，用于承接看板的下钻点击。
 

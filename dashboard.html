@@ -17,13 +17,13 @@
         <p class="subtitle">Distribution, compliance and activity overview powered by Cloudflare D1.</p>
       </div>
       <div class="header-controls">
-        <div class="top-actions" aria-label="数据操作">
-          <a class="btn" href="index.html" title="返回设备明细表">设备明细</a>
-          <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
-          <button id="themeToggle" class="btn theme-toggle" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
-        </div>
-        <div class="status-wrap" aria-label="数据状态">
-          <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
+        <div class="header-actions-row">
+          <div class="top-actions" aria-label="数据操作">
+            <a class="btn" href="index.html" title="返回设备明细表">设备明细</a>
+            <button id="refreshBtn" class="btn btn-primary" type="button">刷新数据</button>
+            <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
+          </div>
+          <button id="themeToggle" class="theme-toggle-standalone" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
         </div>
       </div>
     </header>
@@ -50,9 +50,9 @@
         <span class="stat-note" id="kpiWin11Note">占比 —</span>
       </article>
       <article class="kpi-card">
-        <span class="stat-label">客户端待升级</span>
-        <strong id="kpiOutdated">—</strong>
-        <span class="stat-note" id="kpiOutdatedNote">仍为旧版本</span>
+        <span class="stat-label">Windows 10</span>
+        <strong id="kpiWin10">—</strong>
+        <span class="stat-note" id="kpiWin10Note">占比 —</span>
       </article>
       <article class="kpi-card">
         <span class="stat-label">30 天未上报</span>
@@ -87,7 +87,7 @@
         <div class="chart-body" id="chartOutlook"><p class="chart-placeholder">加载中…</p></div>
       </article>
       <article class="chart-card">
-        <header class="chart-head"><h2>客户端版本分布</h2><span class="chart-note">采集脚本版本</span></header>
+        <header class="chart-head"><h2>采集脚本版本分布</h2><span class="chart-note">客户端部署版本</span></header>
         <div class="chart-body" id="chartAgent"><p class="chart-placeholder">加载中…</p></div>
       </article>
       <article class="chart-card chart-card-wide">

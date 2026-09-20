@@ -102,18 +102,20 @@ function donutChart(items,options={}){
 
 function barChart(items,options={}){
   if(!items.length)return '<p class="chart-placeholder">暂无数据</p>';
-  const max=Math.max(...items.map(i=>i.value),1);
+  const total=options.total||items.reduce((s,i)=>s+i.value,0);
+
+  const summary=options.summary?`<div class="bar-summary">${options.summary}</div>`:"";
 
   const rows=items.map((it,i)=>{
     const color=it.color||PALETTE[i%PALETTE.length];
-    const width=(it.value/max*100).toFixed(1);
-    return `<div class="bar-row${it.query?"":" static"}" data-tip="${escapeHtml(tipText(it.label,it.value,options.total||0))}" data-query="${escapeHtml(it.query||"")}">`
+    const width=total?(it.value/total*100).toFixed(1):"0";
+    return `<div class="bar-row${it.query?"":" static"}" data-tip="${escapeHtml(tipText(it.label,it.value,total))}" data-query="${escapeHtml(it.query||"")}">`
       +`<span class="bar-label" title="${escapeHtml(it.label)}">${escapeHtml(it.label)}</span>`
-      +`<span class="bar-value">${it.value}</span>`
+      +`<span class="bar-value">${it.value} · ${pct(it.value,total)}</span>`
       +`<span class="bar-track"><span class="bar-fill" style="width:${width}%;background:${color}"></span></span></div>`;
   }).join("");
 
-  return `<div class="bar-list">${rows}</div>`;
+  return `<div class="bar-list">${summary}${rows}</div>`;
 }
 
 /* ---------- KPI ---------- */
@@ -131,11 +133,8 @@ function updateKpis(){
   const active24=devices.filter(d=>{const a=ageDays(d.report_time);return a!==null&&a<1}).length;
   const vpn=devices.filter(d=>safe(d.forticlient_user).trim()).length;
   const win11=devices.filter(d=>osGroup(d.os_name)==="Windows 11").length;
+  const win10=devices.filter(d=>osGroup(d.os_name)==="Windows 10").length;
   const stale=devices.filter(d=>{const a=ageDays(d.report_time);return a===null||a>=30}).length;
-
-  const versions=[...new Set(devices.map(d=>safe(d.script_version).trim()).filter(Boolean))].sort(compareVersion);
-  const latest=versions[versions.length-1]||"—";
-  const outdated=devices.filter(d=>{const v=safe(d.script_version).trim();return v&&v!==latest}).length;
 
   $("kpiTotal").textContent=total;
   $("kpiActive24").textContent=active24;
@@ -144,8 +143,8 @@ function updateKpis(){
   setNote("kpiVpnNote",`覆盖率 ${pct(vpn,total)}`,vpn/total>=0.9?"good":vpn/total<0.6?"alert":null);
   $("kpiWin11").textContent=win11;
   setNote("kpiWin11Note",`占比 ${pct(win11,total)}`,win11/total>=0.9?"good":null);
-  $("kpiOutdated").textContent=outdated;
-  setNote("kpiOutdatedNote",outdated?`需升级到 ${latest}`:"全部为最新版本",outdated?"alert":"good");
+  $("kpiWin10").textContent=win10;
+  setNote("kpiWin10Note",`占比 ${pct(win10,total)} · 建议迁移到 Windows 11`,win10>0?"alert":"good");
   $("kpiStale").textContent=stale;
   setNote("kpiStaleNote",`占比 ${pct(stale,total)}`,stale?"alert":"good");
 }
@@ -190,9 +189,14 @@ function renderCharts(){
     .map((it,i)=>({...it,color:i===0?"var(--chart-2)":"var(--chart-3)",query:it.label}));
   $("chartAgent").innerHTML=barChart(versions,{total});
 
-  const models=byCountDesc(countBy(devices,d=>safe(d.model).trim()||"未知")).slice(0,10)
-    .map(it=>({...it,label:shortenModel(it.label),query:it.label}));
-  $("chartModel").innerHTML=barChart(models,{total});
+  const models=byCountDesc(countBy(devices,d=>safe(d.model).trim()||"未知"));
+  const topN=models.slice(0,10);
+  const topSum=topN.reduce((s,i)=>s+i.value,0);
+  const modelSummary=`Top ${topN.length} 合计 <strong>${topSum} 台</strong> · 占 <strong>${pct(topSum,total)}</strong>`;
+  $("chartModel").innerHTML=barChart(
+    topN.map(it=>({...it,label:shortenModel(it.label),query:it.label})),
+    {total,summary:modelSummary}
+  );
 }
 
 function renderError(message){

@@ -21,10 +21,9 @@
           <button id="exportBtn" class="btn" type="button">导出 CSV</button>
           <button id="themeToggle" class="btn theme-toggle" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
         </div>
-        <div class="status-wrap">
+        <div class="status-wrap" aria-label="数据状态">
           <div class="page-size-wrap"><label for="pageSizeSelect">每页显示</label><select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select><span>条</span></div>
-          <span id="statusDot" class="status-dot"></span>
-          <span id="statusText">准备加载</span>
+          <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
         </div>
       </div>
     </header>

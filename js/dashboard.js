@@ -133,6 +133,8 @@ function barChart(items,options={}){
 
 function renderDiskCharts(){
   const total=devices.length;
+  const chartDisk=$("chartDisk");
+  if(!chartDisk)return;
   /* 旧 Agent 没有 c_drive_* 字段 → 单独归到“无数据”，不参与分档 */
   const reported=devices.filter(d=>toGbNumber(d.c_drive_free_gb)!==null);
   const unknown=total-reported.length;
@@ -144,7 +146,7 @@ function renderDiskCharts(){
   })).filter(it=>it.value>0);
   if(unknown)items.push({label:"无数据（旧 Agent）",value:unknown,color:"var(--chart-8)"});
 
-  $("chartDisk").innerHTML=barChart(items,{
+  chartDisk.innerHTML=barChart(items,{
     total,
     summary:`<span>已上报磁盘 <strong>${reported.length}</strong> 台</span>`
       +`<span>低于 ${LOW_DISK_GB} GB <strong>${lowCount}</strong> 台</span>`
@@ -174,8 +176,10 @@ function renderDiskAlert(){
   const filter=`<div class="disk-filter"><span class="disk-filter-label">预警阈值</span>${chips}`
     +`<span class="disk-filter-hint">点击设备行可跳转到明细表</span></div>`;
 
+  const target=$("chartDiskAlert");
+  if(!target)return;
   if(!rows.length){
-    $("chartDiskAlert").innerHTML=`<div class="disk-alert">${filter}`
+    target.innerHTML=`<div class="disk-alert">${filter}`
       +`<p class="disk-empty">没有设备剩余空间低于 ${diskThreshold} GB</p></div>`;
   }else{
     const list=rows.map(r=>{
@@ -189,12 +193,12 @@ function renderDiskAlert(){
         +`<span class="bar-track">${usedPct===null?"":`<span class="bar-fill" style="width:${usedPct.toFixed(1)}%;background:var(--ramp-5)"></span>`}</span>`
         +`</div>`;
     }).join("");
-    $("chartDiskAlert").innerHTML=`<div class="disk-alert">${filter}`
+    target.innerHTML=`<div class="disk-alert">${filter}`
       +`<div class="bar-summary"><span>剩余空间最少优先</span><span>共 <strong>${rows.length}</strong> 台低于 ${diskThreshold} GB</span></div>`
       +`<div class="disk-list">${list}</div></div>`;
   }
 
-  $("chartDiskAlert").querySelectorAll(".disk-chip").forEach(btn=>{
+  target.querySelectorAll(".disk-chip").forEach(btn=>{
     btn.addEventListener("click",()=>{
       diskThreshold=Number(btn.dataset.threshold);
       renderDiskAlert();
@@ -275,6 +279,8 @@ function renderCharts(){
     .sort((a,b)=>compareVersion(b.label,a.label))
     .map((it,i)=>({...it,color:i===0?"var(--chart-2)":"var(--chart-3)",query:it.label}));
   $("chartAgent").innerHTML=barChart(versions,{total});
+
+  renderDiskCharts();
 
   const models=byCountDesc(countBy(devices,d=>safe(d.model).trim()||"未知"));
   const topN=models.slice(0,10);

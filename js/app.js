@@ -18,6 +18,16 @@ function displaySourceTime(v){
   return m?`${m[1]} ${m[2]}`:s;
 }
 
+/* C盘空间：合并显示“剩余 / 总容量”，剩余 < 20 GB 时红色预警，无数据显示 — */
+function displayDrive(free,total){
+  const f=toGbNumber(free),t=toGbNumber(total);
+  if(f===null&&t===null)return '<span class="muted">—</span>';
+  const low=f!==null&&f<LOW_DISK_GB;
+  const tip=low?` title="剩余空间不足（低于 ${LOW_DISK_GB} GB）"`:"";
+  return `<span class="disk-cell${low?" low":""}"${tip}>`
+    +`<span class="disk-free">${escapeHtml(formatGb(f))}</span> / ${escapeHtml(formatGb(t))} GB</span>`;
+}
+
 function timeAgo(v){
   const d=parseDate(v); if(!d) return {text:"—",cls:"muted"};
   const diff=Date.now()-d.getTime(), min=Math.floor(diff/60000), hour=Math.floor(diff/3600000), day=Math.floor(diff/86400000);
@@ -53,7 +63,17 @@ function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version"];
   let rows=allDevices.filter(d=>!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)));
-  rows.sort((a,b)=>compareValues(a,b,sortKey)*(sortAsc?1:-1));
+  rows.sort((a,b)=>{
+    /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
+    if(sortKey==="c_drive_free_gb"){
+      const av=toGbNumber(a[sortKey]),bv=toGbNumber(b[sortKey]);
+      if(av===null&&bv===null)return 0;
+      if(av===null)return 1;
+      if(bv===null)return -1;
+      return (av-bv)*(sortAsc?1:-1);
+    }
+    return compareValues(a,b,sortKey)*(sortAsc?1:-1);
+  });
   return rows;
 }
 
@@ -112,6 +132,7 @@ function render(){
       <td>${safe(d.manufacturer).trim()?`<span class="badge">${escapeHtml(d.manufacturer)}</span>`:'<span class="muted">—</span>'}</td>
       <td>${escapeHtml(displayValue(d.model))}</td>
       <td>${escapeHtml(displayValue(d.os_name))}</td>
+      <td>${displayDrive(d.c_drive_free_gb,d.c_drive_total_gb)}</td>
       <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(displayValue(d.report_time))}</span></td>
       <td class="mono">${escapeHtml(displayValue(d.script_version))}</td>
     </tr>`;
@@ -131,7 +152,7 @@ async function loadDevices(){
   }catch(e){
     console.error(e);
     $("statusText").textContent="读取失败"; $("statusDot").className="status-dot err";
-    $("deviceBody").innerHTML='<tr><td colspan="11" class="empty-state">无法读取设备数据，请检查 Worker / CORS / API 地址。</td></tr>';
+    $("deviceBody").innerHTML='<tr><td colspan="12" class="empty-state">无法读取设备数据，请检查 Worker / CORS / API 地址。</td></tr>';
   }
 }
 
@@ -140,10 +161,19 @@ function exportCsv(){
   const headers=[
     ["computer_name","ComputerName"],["serial_number","SerialNumber"],["windows_user","WindowsUser"],
     ["forticlient_user","FortiClientUser"],["forticlient_last_seen","FortiClientLastSeen"],["outlook_account","OutlookAccount"],
-    ["manufacturer","Manufacturer"],["model","Model"],["os_name","OSName"],["report_time","ReportTime"],["script_version","ScriptVersion"]
+    ["manufacturer","Manufacturer"],["model","Model"],["os_name","OSName"],["report_time","ReportTime"],["script_version","ScriptVersion"],
+    ["c_drive_total_gb","C Drive Total GB"],["c_drive_free_gb","C Drive Free GB"]
   ];
   const esc=v=>`"${safe(v).replaceAll('"','""')}"`;
-  const csv=[headers.map(h=>esc(h[1])).join(","),...rows.map(r=>headers.map(h=>esc(r[h[0]])).join(","))].join("\r\n");
+  /* 磁盘字段导出原始数值，不合并；旧 Agent 无数据 → 空值 */
+  const cell=(r,key)=>{
+    if(key==="c_drive_total_gb"||key==="c_drive_free_gb"){
+      const n=toGbNumber(r[key]);
+      return n===null?'""':String(n);
+    }
+    return esc(r[key]);
+  };
+  const csv=[headers.map(h=>esc(h[1])).join(","),...rows.map(r=>headers.map(h=>cell(r,h[0])).join(","))].join("\r\n");
   const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download=`asset-center-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);

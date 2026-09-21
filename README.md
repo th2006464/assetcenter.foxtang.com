@@ -10,15 +10,16 @@
 
 | 页面 | 入口 | 用途 |
 | --- | --- | --- |
-| `index.html` | 生产域名根路径 | 设备明细表：11 列排序、搜索、分页、CSV 导出 |
-| `dashboard.html` | `/dashboard.html` | 数据看板：KPI + 8 张分布图，可下钻到明细表 |
+| `index.html` | 生产域名根路径 | 设备明细表：12 列排序、搜索、分页、CSV 导出 |
+| `dashboard.html` | `/dashboard.html` | 数据看板：KPI + 10 张分布图 + C 盘空间预警，可下钻到明细表 |
 
 两个页面通过顶部胶囊按钮互相跳转。看板里点击可筛选的图例（厂商、操作系统、机型、客户端版本）会带着关键词跳转到 `index.html?q=...` 并自动填入搜索框。
 
 ### 看板内容
 
 - **KPI**：设备总数、24h 内上报、最近24小时VPN接入、Windows 11、Windows 10、30 天未上报。
-- **分布图**：操作系统版本、设备活跃度（按最后上报时间分 24h / 1-3 天 / 4-7 天 / 8-30 天 / 30 天以上）、VPN 接入状态（24h 内有连接 / 有账号但超 24h / 未接入）、厂商、设备形态（按型号关键词识别笔记本 / 台式机）、Outlook 账号绑定、采集脚本版本、机型 Top 10。
+- **分布图**：操作系统版本、设备活跃度（按最后上报时间分 24h / 1-3 天 / 4-7 天 / 8-30 天 / 30 天以上）、VPN 接入状态（24h 内有连接 / 有账号但超 24h / 未接入）、厂商、设备形态（按型号关键词识别笔记本 / 台式机）、Outlook 账号绑定、采集脚本版本、C 盘剩余空间分布（< 2 GB / 2-20 GB / 20-50 GB / 50-100 GB / ≥ 100 GB / 无数据）、机型 Top 10。
+- **C 盘空间预警**：可按 2 / 20 / 50 GB 阈值快速筛选剩余空间不足的设备，剩余最少优先排列，点击设备行跳转到明细表。
 
 图表是手写 SVG 环形图与 CSS 条形图，不依赖任何第三方图表库，颜色沿用 `css/dashboard.css` 中的主题变量，明暗主题自动适配。
 
@@ -30,7 +31,9 @@
 const API_URL = "https://ams.foxtang.com/devices";
 ```
 
-接口需返回 JSON 数组，字段为：`computer_name`、`serial_number`、`windows_user`、`outlook_account`、`manufacturer`、`model`、`os_name`、`forticlient_user`、`forticlient_last_seen`、`report_time`、`script_version`。
+接口需返回 JSON 数组，字段为：`computer_name`、`serial_number`、`windows_user`、`outlook_account`、`manufacturer`、`model`、`os_name`、`forticlient_user`、`forticlient_last_seen`、`report_time`、`script_version`，以及 Agent v1.3.0 新增的 `c_drive_total_gb`、`c_drive_free_gb`（C 盘总容量 / 剩余空间，单位 GB）。
+
+这两个磁盘字段对旧 Agent 为 `null`，前端按“无数据”处理：明细表显示 `—`、排序时永远排在最后、CSV 导出为空值。
 
 接口失败时页面显示“读取失败”并保留上一次状态，不会写入任何密钥或数据库凭据到前端。
 

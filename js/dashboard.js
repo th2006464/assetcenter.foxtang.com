@@ -6,6 +6,17 @@ let devices = [];
 const PALETTE = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)","var(--chart-6)","var(--chart-7)","var(--chart-8)"];
 const RAMP = ["var(--ramp-1)","var(--ramp-2)","var(--ramp-3)","var(--ramp-4)","var(--ramp-5)"];
 
+/* C 盘剩余空间分档（GB）。阈值与明细表的低空间预警规则保持一致。 */
+const DISK_BUCKETS = [
+  ["< 2 GB（严重）",  v => v < 2,             "var(--ramp-5)"],
+  ["2-20 GB（预警）", v => v >= 2 && v < 20,  "var(--ramp-3)"],
+  ["20-50 GB",        v => v >= 20 && v < 50, "var(--ramp-2)"],
+  ["50-100 GB",       v => v >= 50 && v < 100,"var(--chart-2)"],
+  ["≥ 100 GB",        v => v >= 100,          "var(--chart-1)"]
+];
+const DISK_THRESHOLDS = [2,20,50];
+let diskThreshold = 20;
+
 const BUCKETS = [
   ["24 小时内", a => a < 1],
   ["1-3 天",    a => a >= 1 && a < 3],
@@ -118,6 +129,79 @@ function barChart(items,options={}){
   return `<div class="bar-list">${summary}${rows}</div>`;
 }
 
+/* ---------- C 盘空间（Agent v1.3.0） ---------- */
+
+function renderDiskCharts(){
+  const total=devices.length;
+  /* 旧 Agent 没有 c_drive_* 字段 → 单独归到“无数据”，不参与分档 */
+  const reported=devices.filter(d=>toGbNumber(d.c_drive_free_gb)!==null);
+  const unknown=total-reported.length;
+  const lowCount=reported.filter(d=>toGbNumber(d.c_drive_free_gb)<LOW_DISK_GB).length;
+
+  const items=DISK_BUCKETS.map(([label,test,color])=>({
+    label,color,
+    value:reported.filter(d=>test(toGbNumber(d.c_drive_free_gb))).length
+  })).filter(it=>it.value>0);
+  if(unknown)items.push({label:"无数据（旧 Agent）",value:unknown,color:"var(--chart-8)"});
+
+  $("chartDisk").innerHTML=barChart(items,{
+    total,
+    summary:`<span>已上报磁盘 <strong>${reported.length}</strong> 台</span>`
+      +`<span>低于 ${LOW_DISK_GB} GB <strong>${lowCount}</strong> 台</span>`
+  });
+  renderDiskAlert();
+}
+
+function renderDiskAlert(){
+  const total=devices.length;
+  const rows=devices
+    .map(d=>({name:safe(d.computer_name).trim()||safe(d.serial_number).trim()||"未知设备",
+              user:safe(d.windows_user).trim()||"—",
+              free:toGbNumber(d.c_drive_free_gb),
+              capacity:toGbNumber(d.c_drive_total_gb)}))
+    .filter(r=>r.free!==null&&r.free<diskThreshold)
+    .sort((a,b)=>a.free-b.free);
+
+  const note=$("diskAlertNote");
+  if(note){
+    note.textContent=`剩余 < ${diskThreshold} GB · ${rows.length} 台 · 占比 ${pct(rows.length,total)}`;
+    note.classList.toggle("alert",rows.length>0);
+  }
+
+  const chips=DISK_THRESHOLDS.map(t=>
+    `<button class="disk-chip${t===diskThreshold?" active":""}" type="button" data-threshold="${t}">&lt; ${t} GB</button>`
+  ).join("");
+  const filter=`<div class="disk-filter"><span class="disk-filter-label">预警阈值</span>${chips}`
+    +`<span class="disk-filter-hint">点击设备行可跳转到明细表</span></div>`;
+
+  if(!rows.length){
+    $("chartDiskAlert").innerHTML=`<div class="disk-alert">${filter}`
+      +`<p class="disk-empty">没有设备剩余空间低于 ${diskThreshold} GB</p></div>`;
+  }else{
+    const list=rows.map(r=>{
+      const usedPct=r.capacity?Math.min(100,Math.max(0,(r.capacity-r.free)/r.capacity*100)):null;
+      const tip=`${r.name} · ${r.user} · 剩余 ${formatGb(r.free)} GB / ${formatGb(r.capacity)} GB`
+        +(usedPct===null?"":` · 已用 ${usedPct.toFixed(1)}%`);
+      return `<div class="disk-row" data-query="${escapeHtml(r.name)}" data-tip="${escapeHtml(tip)}">`
+        +`<span class="disk-row-name">${escapeHtml(r.name)}</span>`
+        +`<span class="disk-row-user">${escapeHtml(r.user)}</span>`
+        +`<span class="disk-row-space low">${escapeHtml(formatDrive(r.free,r.capacity))}</span>`
+        +`<span class="bar-track">${usedPct===null?"":`<span class="bar-fill" style="width:${usedPct.toFixed(1)}%;background:var(--ramp-5)"></span>`}</span>`
+        +`</div>`;
+    }).join("");
+    $("chartDiskAlert").innerHTML=`<div class="disk-alert">${filter}`
+      +`<div class="bar-summary"><span>剩余空间最少优先</span><span>共 <strong>${rows.length}</strong> 台低于 ${diskThreshold} GB</span></div>`
+      +`<div class="disk-list">${list}</div></div>`;
+  }
+
+  $("chartDiskAlert").querySelectorAll(".disk-chip").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      diskThreshold=Number(btn.dataset.threshold);
+      renderDiskAlert();
+    });
+  });
+}
+
 /* ---------- KPI ---------- */
 
 function setNote(id,text,tone){
@@ -203,9 +287,11 @@ function renderCharts(){
 }
 
 function renderError(message){
-  ["chartOs","chartActivity","chartVpn","chartVendor","chartForm","chartOutlook","chartAgent","chartModel"]
-    .forEach(id=>{$(id).innerHTML=`<p class="chart-placeholder">${escapeHtml(message)}</p>`});
-  ["kpiTotal","kpiActive24","kpiVpn","kpiWin11","kpiOutdated","kpiStale"].forEach(id=>{$(id).textContent="—"});
+  ["chartOs","chartActivity","chartVpn","chartVendor","chartForm","chartOutlook","chartAgent","chartDisk","chartDiskAlert","chartModel"]
+    .forEach(id=>{const el=$(id);if(el)el.innerHTML=`<p class="chart-placeholder">${escapeHtml(message)}</p>`});
+  ["kpiTotal","kpiActive24","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
+  const note=$("diskAlertNote");
+  if(note){note.textContent="剩余空间低于阈值";note.classList.remove("alert")}
 }
 
 /* ---------- data ---------- */

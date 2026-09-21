@@ -12,11 +12,12 @@ function displayVpnUser(v){
   const pos=full.lastIndexOf("\\");
   return pos>=0?full.slice(pos+1):full;
 }
+/* 统一按北京时间展示（分钟精度）；解析不了时保留原始串，行为与旧版一致 */
 function displaySourceTime(v){
   const s=safe(v).trim();
   if(!s)return "—";
-  const m=s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-  return m?`${m[1]} ${m[2]}`:s;
+  const out=formatBeijingTime(s,false);
+  return out==="—"?s:out;
 }
 
 /* C盘空间：合并显示“剩余 / 总容量”，剩余 < 20 GB 时红色预警，无数据显示 — */
@@ -157,7 +158,7 @@ function render(){
       <td>${escapeHtml(displayValue(d.model))}</td>
       <td>${escapeHtml(displayValue(d.os_name))}</td>
       <td>${displayDrive(d.c_drive_free_gb,d.c_drive_total_gb)}</td>
-      <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(displayValue(d.report_time))}</span></td>
+      <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(formatBeijingTime(d.report_time))}</span></td>
       <td class="mono">${escapeHtml(displayValue(d.script_version))}</td>
     </tr>`;
   }).join("");

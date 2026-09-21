@@ -56,6 +56,8 @@ const API_URL = "https://ams.foxtang.com/devices";
 
 这两个磁盘字段对旧 Agent 为 `null`，前端按“无数据”处理：明细表显示 `—`、排序时永远排在最后、CSV 导出为空值。
 
+时间字段（`report_time` / `forticlient_last_seen`）在页面上一律按**北京时间（UTC+8）**展示，例如 `2026-09-21T08:59:53Z` 显示为 `2026-09-21 16:59:53`。换算逻辑在 `js/common.js` 的 `formatBeijingTime()`。CSV 导出保留 API 原始值，不做换算，方便后续程序处理。
+
 接口失败时页面显示“读取失败”并保留上一次状态，不会写入任何密钥或数据库凭据到前端。
 
 ## 目录结构

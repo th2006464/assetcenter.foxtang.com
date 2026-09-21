@@ -10,6 +10,31 @@ const safe = v => (v ?? "").toString();
 function escapeHtml(v){return safe(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 function parseDate(v){const d=new Date(v);return Number.isNaN(d.getTime())?null:d}
 
+/* ---------- 时间展示统一按北京时间（UTC+8） ----------
+   API 返回 ISO 串（report_time 用 Z 结尾的 UTC，forticlient_last_seen 带 +08:00），
+   parseDate 都能正确解析成瞬时点，这里再统一换算到北京时间展示，
+   避免出现 2026-09-21T08:59:53Z 这种带 T / Z、需要心算时区的写法。 */
+const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function beijingParts(v){
+  const d=parseDate(v);
+  if(!d)return null;
+  const bj=new Date(d.getTime()+BEIJING_OFFSET_MS);
+  const p=n=>String(n).padStart(2,"0");
+  return {
+    date:`${bj.getUTCFullYear()}-${p(bj.getUTCMonth()+1)}-${p(bj.getUTCDate())}`,
+    time:`${p(bj.getUTCHours())}:${p(bj.getUTCMinutes())}`,
+    seconds:p(bj.getUTCSeconds())
+  };
+}
+
+/* withSeconds=true → 2026-09-21 16:59:53 ；false → 2026-09-21 16:59 */
+function formatBeijingTime(v,withSeconds=true){
+  const p=beijingParts(v);
+  if(!p)return "—";
+  return withSeconds?`${p.date} ${p.time}:${p.seconds}`:`${p.date} ${p.time}`;
+}
+
 /* ---------- C 盘容量（Agent v1.3.0 新增） ----------
    Worker 返回 c_drive_total_gb / c_drive_free_gb（单位 GB，可能为 null）。
    旧 Agent 没有这两个字段 → 一律返回 null，界面显示“—”，排序时排在最后。 */

@@ -7,43 +7,34 @@ const PALETTE = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart
 const RAMP = ["var(--ramp-1)","var(--ramp-2)","var(--ramp-3)","var(--ramp-4)","var(--ramp-5)"];
 
 /* C 盘剩余空间分档（GB）。阈值与明细表的低空间预警规则保持一致。 */
+/* 第四项是对应的结构化筛选值，与 common.js 的 FILTER_SPECS.disk 对齐 */
 const DISK_BUCKETS = [
-  ["< 2 GB（严重）",  v => v < 2,             "var(--ramp-5)"],
-  ["2-20 GB（预警）", v => v >= 2 && v < 20,  "var(--ramp-3)"],
-  ["20-50 GB",        v => v >= 20 && v < 50, "var(--ramp-2)"],
-  ["50-100 GB",       v => v >= 50 && v < 100,"var(--chart-2)"],
-  ["≥ 100 GB",        v => v >= 100,          "var(--chart-1)"]
+  ["< 2 GB（严重）",  v => v < 2,             "var(--ramp-5)", "lt2"],
+  ["2-20 GB（预警）", v => v >= 2 && v < 20,  "var(--ramp-3)", "2-20"],
+  ["20-50 GB",        v => v >= 20 && v < 50, "var(--ramp-2)", "20-50"],
+  ["50-100 GB",       v => v >= 50 && v < 100,"var(--chart-2)", "50-100"],
+  ["≥ 100 GB",        v => v >= 100,          "var(--chart-1)", "ge100"]
 ];
 const DISK_THRESHOLDS = [2,5,20,50];
 let diskThreshold = 20;
 
+/* 第三项是对应的结构化筛选值，与 common.js 的 FILTER_SPECS.activity 对齐 */
 const BUCKETS = [
-  ["24 小时内", a => a < 1],
-  ["1-3 天",    a => a >= 1 && a < 3],
-  ["4-7 天",    a => a >= 3 && a < 7],
-  ["8-30 天",   a => a >= 7 && a < 30],
-  ["30 天以上", a => a >= 30]
+  ["24 小时内", a => a < 1,             "24h"],
+  ["1-3 天",    a => a >= 1 && a < 3,   "1-3d"],
+  ["4-7 天",    a => a >= 3 && a < 7,   "4-7d"],
+  ["8-30 天",   a => a >= 7 && a < 30,  "8-30d"],
+  ["30 天以上", a => a >= 30,           "30d+"]
 ];
 
 /* ---------- helpers ---------- */
 
 function pct(value,total){return total?`${(value/total*100).toFixed(1)}%`:"0%"}
 
-function ageDays(v){
-  const d=parseDate(v);
-  if(!d)return null;
-  return (Date.now()-d.getTime())/86400000;
-}
+/* ageDays() 与 formFactor() 已移到 common.js，明细表筛选与看板共用同一口径 */
 
 /* normalizeVendor() and osGroup() live in common.js so the table page and the
    dashboard always report the same vendor / OS numbers. */
-
-function formFactor(v){
-  const m=safe(v).toLowerCase();
-  if(/book|thinkpad|latitude/.test(m))return "笔记本";
-  if(/tower|desktop|microtower|\bsff\b|\bmt\b|optiplex|thinkcentre/.test(m))return "台式机";
-  return "其他";
-}
 
 function shortenModel(v){
   const s=safe(v);
@@ -140,11 +131,12 @@ function renderDiskCharts(){
   const unknown=total-reported.length;
   const lowCount=reported.filter(d=>toGbNumber(d.c_drive_free_gb)<LOW_DISK_GB).length;
 
-  const items=DISK_BUCKETS.map(([label,test,color])=>({
+  const items=DISK_BUCKETS.map(([label,test,color,key])=>({
     label,color,
-    value:reported.filter(d=>test(toGbNumber(d.c_drive_free_gb))).length
+    value:reported.filter(d=>test(toGbNumber(d.c_drive_free_gb))).length,
+    query:`filter=disk:${key}`
   })).filter(it=>it.value>0);
-  if(unknown)items.push({label:"无数据（旧 Agent）",value:unknown,color:"var(--chart-8)"});
+  if(unknown)items.push({label:"无数据（旧 Agent）",value:unknown,color:"var(--chart-8)",query:"filter=disk:unknown"});
 
   chartDisk.innerHTML=barChart(items,{
     total,
@@ -265,42 +257,43 @@ function updateKpis(){
 function renderCharts(){
   const total=devices.length;
 
-  const os=byCountDesc(countBy(devices,d=>osGroup(d.os_name))).map(it=>({...it,query:it.label}));
+  const os=byCountDesc(countBy(devices,d=>osGroup(d.os_name))).map(it=>({...it,query:`q=${it.label}`}));
   $("chartOs").innerHTML=donutChart(os,{aria:"操作系统版本分布",centerLabel:"台设备"});
 
-  const activity=BUCKETS.map(([label,test],i)=>({
+  const activity=BUCKETS.map(([label,test,key],i)=>({
     label,
     value:devices.filter(d=>{const a=ageDays(d.report_time);return a!==null&&test(a)}).length,
-    color:RAMP[i]
+    color:RAMP[i],
+    query:`filter=activity:${key}`
   })).filter(it=>it.value>0);
   const unknownAge=devices.filter(d=>ageDays(d.report_time)===null).length;
-  if(unknownAge)activity.push({label:"时间未知",value:unknownAge,color:PALETTE[5]});
+  if(unknownAge)activity.push({label:"时间未知",value:unknownAge,color:PALETTE[5],query:"filter=activity:unknown"});
   $("chartActivity").innerHTML=barChart(activity,{total});
 
   const vpnAccount=devices.filter(d=>safe(d.forticlient_user).trim()).length;
   const vpnRecent=devices.filter(d=>{const a=ageDays(d.forticlient_last_seen);return a!==null&&a<1}).length;
   const vpnIdle=Math.max(0,vpnAccount-vpnRecent);
   $("chartVpn").innerHTML=donutChart([
-    {label:"24h 内有连接",value:vpnRecent,color:"var(--chart-2)"},
-    {label:"有账号但超 24h",value:vpnIdle,color:"var(--chart-3)"},
-    {label:"未接入 VPN",value:Math.max(0,total-vpnAccount),color:"var(--chart-4)"}
+    {label:"24h 内有连接",value:vpnRecent,color:"var(--chart-2)",query:"filter=vpn:recent"},
+    {label:"有账号但超 24h",value:vpnIdle,color:"var(--chart-3)",query:"filter=vpn:idle"},
+    {label:"未接入 VPN",value:Math.max(0,total-vpnAccount),color:"var(--chart-4)",query:"filter=vpn:none"}
   ],{aria:"VPN 接入状态分布",centerLabel:"台设备"});
 
-  const vendors=byCountDesc(countBy(devices,d=>normalizeVendor(d.manufacturer))).map(it=>({...it,query:it.label}));
+  const vendors=byCountDesc(countBy(devices,d=>normalizeVendor(d.manufacturer))).map(it=>({...it,query:`q=${it.label}`}));
   $("chartVendor").innerHTML=donutChart(vendors,{aria:"厂商分布",centerLabel:"台设备"});
 
-  const forms=byCountDesc(countBy(devices,d=>formFactor(d.model)));
+  const forms=byCountDesc(countBy(devices,d=>formFactor(d.model))).map(it=>({...it,query:`filter=form:${it.label}`}));
   $("chartForm").innerHTML=donutChart(forms,{aria:"设备形态分布",centerLabel:"台设备"});
 
   const bound=devices.filter(d=>safe(d.outlook_account).trim()).length;
   $("chartOutlook").innerHTML=donutChart([
-    {label:"已绑定邮箱",value:bound,color:"var(--chart-6)"},
-    {label:"未绑定邮箱",value:total-bound,color:"var(--chart-3)"}
+    {label:"已绑定邮箱",value:bound,color:"var(--chart-6)",query:"filter=outlook:bound"},
+    {label:"未绑定邮箱",value:total-bound,color:"var(--chart-3)",query:"filter=outlook:unbound"}
   ],{aria:"Outlook 账号绑定分布",centerLabel:"台设备"});
 
   const versions=byCountDesc(countBy(devices,d=>safe(d.script_version).trim()||"未知"))
     .sort((a,b)=>compareVersion(b.label,a.label))
-    .map((it,i)=>({...it,color:i===0?"var(--chart-2)":"var(--chart-3)",query:it.label}));
+    .map((it,i)=>({...it,color:i===0?"var(--chart-2)":"var(--chart-3)",query:`q=${it.label}`}));
   $("chartAgent").innerHTML=barChart(versions,{total});
 
   renderDiskCharts();
@@ -310,7 +303,7 @@ function renderCharts(){
   const topSum=topN.reduce((s,i)=>s+i.value,0);
   const modelSummary=`Top ${topN.length} 合计 <strong>${topSum} 台</strong> · 占 <strong>${pct(topSum,total)}</strong>`;
   $("chartModel").innerHTML=barChart(
-    topN.map(it=>({...it,label:shortenModel(it.label),query:it.label})),
+    topN.map(it=>({...it,label:shortenModel(it.label),query:`q=${it.label}`})),
     {total,summary:modelSummary}
   );
 }
@@ -376,7 +369,13 @@ function initDrilldown(){
     const target=e.target.closest("[data-query]");
     const query=target&&target.dataset.query;
     if(!query)return;
-    location.href=`index.html?q=${encodeURIComponent(query)}`;
+    /* data-query 两种形态：
+       "filter=activity:24h" → 结构化筛选（活跃度 / VPN / 形态 / 邮箱 / 磁盘分档）
+       "Windows 11" 等裸关键词 → 普通关键字搜索 */
+    const m=query.match(/^(q|filter)=(.*)$/);
+    location.href=m
+      ? `index.html?${m[1]}=${encodeURIComponent(m[2])}`
+      : `index.html?q=${encodeURIComponent(query)}`;
   });
 }
 

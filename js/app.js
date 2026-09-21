@@ -3,6 +3,7 @@ let sortKey = "report_time";
 let sortAsc = false;
 let pageSize = 20;
 let currentPage = 1;
+let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 
 function displayValue(v){return safe(v).trim() || "—"}
 function displayVpnUser(v){
@@ -59,10 +60,33 @@ function compareValues(a,b,key){
   return av<bv?-1:av>bv?1:0;
 }
 
+/* 看板下钻用的结构化筛选（?filter=key:value），与关键字搜索是 AND 关系 */
+function updateFilterChip(){
+  const wrap=$("filterChipWrap");
+  if(!wrap)return;
+  if(!activeFilter){wrap.hidden=true;return}
+  wrap.hidden=false;
+  const text=$("filterChipText");
+  if(text)text.textContent="筛选："+filterLabel(activeFilter);
+}
+
+function clearFilter(){
+  activeFilter=null;
+  try{
+    const url=new URL(location.href);
+    url.searchParams.delete("filter");
+    history.replaceState(null,"",url.toString());
+  }catch(e){/* file:// 等场景不支持，忽略即可 */}
+  updateFilterChip();
+  currentPage=1;
+  render();
+}
+
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version"];
-  let rows=allDevices.filter(d=>!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)));
+  let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
+    &&matchesFilter(d,activeFilter));
   rows.sort((a,b)=>{
     /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
     if(sortKey==="c_drive_free_gb"){
@@ -181,8 +205,13 @@ function exportCsv(){
 
 document.addEventListener("DOMContentLoaded",()=>{
   initTheme();
-  const preset=new URLSearchParams(location.search).get("q");
+  const params=new URLSearchParams(location.search);
+  const preset=params.get("q");
   if(preset)$("searchInput").value=preset;
+  activeFilter=parseFilterParam(params.get("filter"));
+  updateFilterChip();
+  const clearBtn=$("clearFilterBtn");
+  if(clearBtn)clearBtn.addEventListener("click",clearFilter);
   $("searchInput").addEventListener("input",()=>{currentPage=1;render()});
   $("refreshBtn").addEventListener("click",loadDevices);
   $("exportBtn").addEventListener("click",exportCsv);

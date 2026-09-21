@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>自动化运维仪表盘 · 自动化终端远程管理系统</title>
+  <title>自动化运维仪表盘 · 自动化终端管理平台</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
@@ -29,32 +29,32 @@
     </header>
 
     <section class="kpi-grid" id="kpiGrid">
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="q=" title="点击查看全部设备">
         <span class="stat-label">设备总数</span>
         <strong id="kpiTotal">—</strong>
-        <span class="stat-note">数据库记录总数</span>
+        <span class="stat-note">点击查看全部设备</span>
       </article>
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="filter=activity:24h" title="点击筛选 24 小时内上报的设备">
         <span class="stat-label">24h 内上报</span>
         <strong id="kpiActive24">—</strong>
         <span class="stat-note" id="kpiActive24Note">占比 —</span>
       </article>
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="filter=vpn:recent" title="点击筛选 24 小时内有 VPN 连接的设备">
         <span class="stat-label">最近24小时VPN接入</span>
         <strong id="kpiVpn">—</strong>
         <span class="stat-note" id="kpiVpnNote">占比 —</span>
       </article>
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="q=Windows 11" title="点击筛选 Windows 11 设备">
         <span class="stat-label">Windows 11</span>
         <strong id="kpiWin11">—</strong>
         <span class="stat-note" id="kpiWin11Note">占比 —</span>
       </article>
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="q=Windows 10" title="点击筛选 Windows 10 设备">
         <span class="stat-label">Windows 10</span>
         <strong id="kpiWin10">—</strong>
         <span class="stat-note" id="kpiWin10Note">占比 —</span>
       </article>
-      <article class="kpi-card">
+      <article class="kpi-card kpi-clickable" data-query="filter=activity:30d+" title="点击筛选 30 天以上未上报的设备">
         <span class="stat-label">30 天未上报</span>
         <strong id="kpiStale">—</strong>
         <span class="stat-note" id="kpiStaleNote">疑似闲置设备</span>

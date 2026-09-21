@@ -32,6 +32,9 @@ html[data-theme="dark"]{
 .kpi-card .stat-note{font-size:12px;margin-top:10px}
 .kpi-card .stat-note.alert{color:var(--warn);font-weight:600}
 .kpi-card .stat-note.good{color:var(--good);font-weight:600}
+.kpi-card.kpi-clickable{cursor:pointer;transition:background .12s ease}
+.kpi-card.kpi-clickable:hover{background:var(--surface-2)}
+.kpi-card.kpi-clickable:hover .stat-label{color:var(--accent)}
 
 /* Chart cards */
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}

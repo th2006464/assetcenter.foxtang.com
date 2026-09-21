@@ -14,7 +14,7 @@ const DISK_BUCKETS = [
   ["50-100 GB",       v => v >= 50 && v < 100,"var(--chart-2)"],
   ["≥ 100 GB",        v => v >= 100,          "var(--chart-1)"]
 ];
-const DISK_THRESHOLDS = [2,20,50];
+const DISK_THRESHOLDS = [2,5,20,50];
 let diskThreshold = 20;
 
 const BUCKETS = [
@@ -158,7 +158,7 @@ function renderDiskAlert(){
   const total=devices.length;
   const rows=devices
     .map(d=>({name:safe(d.computer_name).trim()||safe(d.serial_number).trim()||"未知设备",
-              user:safe(d.windows_user).trim()||"—",
+              email:safe(d.outlook_account).trim(),
               free:toGbNumber(d.c_drive_free_gb),
               capacity:toGbNumber(d.c_drive_total_gb)}))
     .filter(r=>r.free!==null&&r.free<diskThreshold)
@@ -170,11 +170,15 @@ function renderDiskAlert(){
     note.classList.toggle("alert",rows.length>0);
   }
 
+  const emails=rows.map(r=>r.email).filter(Boolean);
   const chips=DISK_THRESHOLDS.map(t=>
     `<button class="disk-chip${t===diskThreshold?" active":""}" type="button" data-threshold="${t}">&lt; ${t} GB</button>`
   ).join("");
-  const filter=`<div class="disk-filter"><span class="disk-filter-label">预警阈值</span>${chips}`
-    +`<span class="disk-filter-hint">点击设备行可跳转到明细表</span></div>`;
+  /* 复制按钮：把当前列表里所有非空 Outlook 邮箱一次写入剪贴板，逗号分隔 */
+  const copyBtn=emails.length
+    ? `<button class="disk-copy-btn" type="button" data-emails="${escapeHtml(emails.join("|"))}">📋 复制邮箱 (${emails.length})</button>`
+    : `<span class="disk-filter-hint">列表内暂无可复制邮箱</span>`;
+  const filter=`<div class="disk-filter"><span class="disk-filter-label">预警阈值</span>${chips}${copyBtn}</div>`;
 
   const target=$("chartDiskAlert");
   if(!target)return;
@@ -184,11 +188,12 @@ function renderDiskAlert(){
   }else{
     const list=rows.map(r=>{
       const usedPct=r.capacity?Math.min(100,Math.max(0,(r.capacity-r.free)/r.capacity*100)):null;
-      const tip=`${r.name} · ${r.user} · 剩余 ${formatGb(r.free)} GB / ${formatGb(r.capacity)} GB`
+      const emailTxt=r.email||"—";
+      const tip=`${r.name} · ${r.email||"未登记邮箱"} · 剩余 ${formatGb(r.free)} GB / ${formatGb(r.capacity)} GB`
         +(usedPct===null?"":` · 已用 ${usedPct.toFixed(1)}%`);
       return `<div class="disk-row" data-query="${escapeHtml(r.name)}" data-tip="${escapeHtml(tip)}">`
         +`<span class="disk-row-name">${escapeHtml(r.name)}</span>`
-        +`<span class="disk-row-user">${escapeHtml(r.user)}</span>`
+        +`<span class="disk-row-email${r.email?"":" empty"}">${escapeHtml(emailTxt)}</span>`
         +`<span class="disk-row-space low">${escapeHtml(formatDrive(r.free,r.capacity))}</span>`
         +`<span class="bar-track">${usedPct===null?"":`<span class="bar-fill" style="width:${usedPct.toFixed(1)}%;background:var(--ramp-5)"></span>`}</span>`
         +`</div>`;
@@ -204,6 +209,23 @@ function renderDiskAlert(){
       renderDiskAlert();
     });
   });
+
+  const copy=target.querySelector(".disk-copy-btn");
+  if(copy){
+    copy.addEventListener("click",async()=>{
+      const list=(copy.dataset.emails||"").split("|").filter(Boolean);
+      const reset=()=>{copy.classList.remove("copied");copy.textContent=`📋 复制邮箱 (${list.length})`};
+      if(!list.length){return}
+      try{
+        await navigator.clipboard.writeText(list.join(","));
+        copy.classList.add("copied");
+        copy.textContent=`✓ 已复制 ${list.length} 个邮箱`;
+      }catch(e){
+        copy.textContent="复制失败，请检查浏览器权限";
+      }
+      setTimeout(reset,1800);
+    });
+  }
 }
 
 /* ---------- KPI ---------- */

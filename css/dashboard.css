@@ -81,11 +81,15 @@ html[data-theme="dark"]{
 .disk-chip{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer}
 .disk-chip:hover{border-color:var(--accent);color:var(--accent)}
 .disk-chip.active{background:var(--bad);border-color:var(--bad);color:#fff}
+.disk-copy-btn{margin-left:auto;border:1px solid var(--accent);background:var(--surface);color:var(--accent);padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.disk-copy-btn:hover{background:var(--accent);color:#fff}
+.disk-copy-btn.copied{background:var(--good);border-color:var(--good);color:#fff}
 .disk-list{display:flex;flex-direction:column;gap:8px;max-height:290px;overflow-y:auto;padding-right:4px}
-.disk-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;gap:4px 10px;align-items:center;cursor:pointer;padding:6px 8px;border:1px solid transparent;border-radius:10px}
+.disk-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) auto;gap:4px 10px;align-items:center;cursor:pointer;padding:6px 8px;border:1px solid transparent;border-radius:10px}
 .disk-row:hover{background:var(--surface-2);border-color:var(--line)}
 .disk-row-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.disk-row-user{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.disk-row-email{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+.disk-row-email.empty{font-style:italic}
 .disk-row-space{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .disk-row-space.low{color:var(--bad)}
 .disk-row .bar-track{grid-column:1 / -1;height:8px}

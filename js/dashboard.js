@@ -174,9 +174,10 @@ function renderDiskAlert(){
   const chips=DISK_THRESHOLDS.map(t=>
     `<button class="disk-chip${t===diskThreshold?" active":""}" type="button" data-threshold="${t}">&lt; ${t} GB</button>`
   ).join("");
-  /* 复制按钮：把当前列表里所有非空 Outlook 邮箱一次写入剪贴板，逗号分隔 */
+  /* 复制按钮：把当前列表里所有非空 Outlook 邮箱一次写入剪贴板。
+     分隔符用分号（Outlook / 多数邮件客户端的收件人分隔符），可直接粘贴到收件人栏。 */
   const copyBtn=emails.length
-    ? `<button class="disk-copy-btn" type="button" data-emails="${escapeHtml(emails.join("|"))}">📋 复制邮箱 (${emails.length})</button>`
+    ? `<button class="disk-copy-btn" type="button" title="以分号分隔复制，可直接粘贴到邮件收件人栏" data-emails="${escapeHtml(emails.join("|"))}">📋 复制邮箱 (${emails.length})</button>`
     : `<span class="disk-filter-hint">列表内暂无可复制邮箱</span>`;
   const filter=`<div class="disk-filter"><span class="disk-filter-label">预警阈值</span>${chips}${copyBtn}</div>`;
 
@@ -217,7 +218,7 @@ function renderDiskAlert(){
       const reset=()=>{copy.classList.remove("copied");copy.textContent=`📋 复制邮箱 (${list.length})`};
       if(!list.length){return}
       try{
-        await navigator.clipboard.writeText(list.join(","));
+        await navigator.clipboard.writeText(list.join(";"));
         copy.classList.add("copied");
         copy.textContent=`✓ 已复制 ${list.length} 个邮箱`;
       }catch(e){

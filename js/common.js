@@ -172,13 +172,17 @@ function formFactor(v){
    key/value 与看板图表一一对应，两边共用同一份定义，避免口径漂移。 */
 const FILTER_SPECS={
   activity:{
+    /* 24h / 7d+ 是看板 KPI 用的「汇总档」，跨了上面的细分档位：
+       24h = 3h ∪ 3h-24h（a < 1 天）；7d+ = 8-30d ∪ 30d+（a >= 7 天）。 */
     labels:{"3h":"3 小时内上报","3h-24h":"3-24 小时前上报","1-3d":"1-3 天前上报",
-            "4-7d":"4-7 天前上报","8-30d":"8-30 天前上报","30d+":"30 天以上未上报","unknown":"上报时间未知"},
+            "4-7d":"4-7 天前上报","8-30d":"8-30 天前上报","30d+":"30 天以上未上报","unknown":"上报时间未知",
+            "24h":"24 小时内上报","7d+":"7 天以上未上报"},
     test:(d,v)=>{
       const a=ageDays(d.report_time);
       if(v==="unknown")return a===null;
       if(a===null)return false;
       return ({"3h":a<ACTIVE_WINDOW_DAYS,"3h-24h":a>=ACTIVE_WINDOW_DAYS&&a<1,
+               "24h":a<1,"7d+":a>=7,
                "1-3d":a>=1&&a<3,"4-7d":a>=3&&a<7,"8-30d":a>=7&&a<30,"30d+":a>=30})[v]===true;
     }
   },

@@ -235,15 +235,18 @@ function setNote(id,text,tone){
 
 function updateKpis(){
   const total=devices.length;
-  const activeRecent=devices.filter(d=>reportedWithinWindow(d.report_time)).length;
+  /* 24 小时内上报：与明细表「24h 内上报」统计卡同一口径（reportedWithinDay） */
+  const recent24=devices.filter(d=>reportedWithinDay(d.report_time)).length;
   const vpn=devices.filter(d=>{const a=ageDays(d.forticlient_last_seen);return a!==null&&a<1}).length;
   const win11=devices.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   const win10=devices.filter(d=>osGroup(d.os_name)==="Windows 10").length;
-  const stale=devices.filter(d=>{const a=ageDays(d.report_time);return a===null||a>=30}).length;
+  /* 7 天未上报：a >= 7 天；上报时间未知（null）也按未上报计入，与旧口径一致 */
+  const stale=devices.filter(d=>{const a=ageDays(d.report_time);return a===null||a>=7}).length;
 
   $("kpiTotal").textContent=total;
-  $("kpiActiveRecent").textContent=activeRecent;
-  setNote("kpiActiveRecentNote",`占比 ${pct(activeRecent,total)}`,activeRecent/total>=0.6?"good":null);
+  const elRecent24=$("kpiRecent24");
+  if(elRecent24)elRecent24.textContent=recent24;
+  setNote("kpiRecent24Note",`占比 ${pct(recent24,total)}`,recent24/total>=0.6?"good":null);
   $("kpiVpn").textContent=vpn;
   setNote("kpiVpnNote",`占比 ${pct(vpn,total)}`,null);
   $("kpiWin11").textContent=win11;
@@ -313,7 +316,7 @@ function renderCharts(){
 function renderError(message){
   ["chartOs","chartActivity","chartVpn","chartVendor","chartForm","chartOutlook","chartAgent","chartDisk","chartDiskAlert","chartModel"]
     .forEach(id=>{const el=$(id);if(el)el.innerHTML=`<p class="chart-placeholder">${escapeHtml(message)}</p>`});
-  ["kpiTotal","kpiActiveRecent","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
+  ["kpiTotal","kpiRecent24","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
   const note=$("diskAlertNote");
   if(note){note.textContent="剩余空间低于阈值";note.classList.remove("alert")}
 }

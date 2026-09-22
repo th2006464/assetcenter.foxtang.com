@@ -1,0 +1,56 @@
+/* 脚本覆盖对比页（compare.html）专用样式
+   基础变量、按钮、面板、统计卡都复用 css/style.css，这里只补充上传区与判定标签。 */
+
+/* ---------- 上传区 ---------- */
+.upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.dropzone{display:block;position:relative;border:2px dashed var(--line);border-radius:var(--radius);background:var(--surface);padding:24px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;box-shadow:var(--shadow)}
+.dropzone:hover,.dropzone.dragging{border-color:var(--accent);background:var(--surface-2)}
+.dropzone.filled{border-style:solid;border-color:var(--good)}
+.dropzone.err{border-style:solid;border-color:var(--bad)}
+.dz-title{font-size:15px;font-weight:700;margin-bottom:8px}
+.dz-hint{color:var(--muted);font-size:12px;line-height:1.7}
+.dz-file{margin-top:12px;font-size:12px;font-weight:700;color:var(--accent);word-break:break-all;min-height:16px}
+.dz-tag{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(37,99,235,.1);color:var(--accent)}
+.dz-tag.warn{background:rgba(217,119,6,.14);color:var(--warn)}
+@media (max-width:900px){.upload-grid{grid-template-columns:1fr}}
+
+/* ---------- 操作条 ---------- */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:999px;padding:9px 15px;cursor:pointer;font-weight:600;font-size:13px;white-space:nowrap}
+.tab:hover{background:var(--surface-2)}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab .n{opacity:.75;font-weight:700;margin-left:5px}
+.compare-actions{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+
+/* ---------- 表格：覆盖 style.css 里明细表的 1720px 最小宽度 ---------- */
+table#compareTable{min-width:1080px}
+#compareTable thead th{cursor:pointer}
+#compareTable .sort-ind{opacity:.35;margin-left:5px;font-size:10px}
+#compareTable th.sorted .sort-ind{opacity:1;color:var(--accent)}
+
+/* ---------- 判定标签 ---------- */
+.verdict{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.verdict.ok{background:rgba(22,163,74,.12);color:var(--good)}
+.verdict.missing{background:rgba(220,38,38,.12);color:var(--bad)}
+.verdict.nonauto{background:rgba(217,119,6,.16);color:var(--warn)}
+html[data-theme="dark"] .verdict.ok{background:rgba(74,222,128,.16);color:#4ade80}
+html[data-theme="dark"] .verdict.missing{background:rgba(248,113,113,.16);color:#f87171}
+html[data-theme="dark"] .verdict.nonauto{background:rgba(251,191,36,.18);color:#fbbf24}
+
+/* 重名角标：同一计算机名在资产表有多条记录（不同序列号） */
+.dup-flag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(217,119,6,.16);color:var(--warn);cursor:help;vertical-align:middle}
+html[data-theme="dark"] .dup-flag{background:rgba(251,191,36,.18);color:#fbbf24}
+
+/* 脚本版本列：非 auto 的标出来 */
+.script-cell{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace;font-size:12px}
+.script-cell.bad{color:var(--warn);font-weight:700}
+.script-cell.none{color:var(--muted);font-style:italic}
+
+/* ---------- 说明面板 ---------- */
+.guide{padding:20px 22px;font-size:13px;line-height:1.9;color:var(--muted)}
+.guide b{color:var(--text)}
+.guide ol{margin:8px 0 0;padding-left:22px}
+.guide code{background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12px}
+.alert-box{padding:14px 18px;border-radius:var(--radius);font-size:13px;line-height:1.7}
+.alert-box.err{background:rgba(220,38,38,.09);border:1px solid rgba(220,38,38,.3);color:var(--bad)}
+.alert-box.info{background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.25);color:var(--accent)}

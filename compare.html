@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>脚本覆盖对比 · 自动化终端管理平台</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/compare.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="favicon.svg" alt="" width="56" height="56">
+        <div>
+          <div class="eyebrow">IT Operations Automation</div>
+          <h1>脚本覆盖对比</h1>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="header-actions-row">
+          <div class="top-actions" aria-label="页面导航">
+            <a class="btn btn-primary" href="index.html" title="设备明细表">设备明细</a>
+            <a class="btn" href="dashboard.html" title="数据看板">仪表盘</a>
+          </div>
+          <button id="themeToggle" class="theme-toggle-standalone" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="upload-grid">
+      <label class="dropzone" id="dzStd" for="fileStd">
+        <div class="dz-title">① 标准设备表（全量清单）</div>
+        <div class="dz-hint">
+          向日葵导出的设备列表，需含「计算机名」列<br>
+          已兼容表头前有「须知」说明行的文件
+        </div>
+        <input id="fileStd" type="file" accept=".csv,text/csv" hidden>
+        <div class="dz-file" id="nameStd"></div>
+        <span class="dz-tag" id="tagStd" hidden></span>
+      </label>
+
+      <label class="dropzone" id="dzAc" for="fileAc">
+        <div class="dz-title">② 资产上报导出</div>
+        <div class="dz-hint">
+          本站在设备明细页导出的 <code>asset-center</code> CSV<br>
+          需含 <code>ComputerName</code> / <code>ScriptVersion</code> 列
+        </div>
+        <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
+        <div class="dz-file" id="nameAc"></div>
+        <span class="dz-tag" id="tagAc" hidden></span>
+      </label>
+    </section>
+
+    <section class="panel" id="msgBox" hidden><div class="alert-box" id="msgText"></div></section>
+
+    <section class="panel" id="guideBox">
+      <div class="guide">
+        <b>用途</b>：拿「全量设备清单」对比「实际资产上报数据」，抓出<b>还没装上自动上报脚本（auto）的计算机名</b>。
+        <ol>
+          <li>左边上传全量标准表（向日葵导出），右边上传本站导出的资产 CSV —— 两个都传完会自动比对。</li>
+          <li>放错位置也没关系，页面会按表头自动识别归位。</li>
+          <li>判定口径：<b>已装 auto</b> = 脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）；
+              <b>从未上报</b> = 资产表里查不到这台机；<b>版本非 auto</b> = 有上报但版本不是 auto（如 <code>1.1.0</code>、<code>1.3.2-test</code>）。</li>
+          <li>计算机名不区分大小写比对，前后空格自动忽略。</li>
+          <li>同一个计算机名在资产表有多条记录时（实测存在两台机器重名、序列号不同），
+              <b>取最近一次上报</b>那条；版本不一致的行会挂「重名」角标，鼠标悬停可看到全部版本。</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="stats-grid" id="statGrid" hidden>
+      <article class="stat-card">
+        <span class="stat-label">标准表设备</span>
+        <strong id="stTotal">0</strong>
+        <span class="stat-note">参与比对总数</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">已装 auto</span>
+        <strong id="stOk">0</strong>
+        <span class="stat-note" id="stOkNote">占比 —</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">未达标</span>
+        <strong id="stFail">0</strong>
+        <span class="stat-note" id="stFailNote">需要跟进</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">从未上报</span>
+        <strong id="stMissing">0</strong>
+        <span class="stat-note">资产表查无此机</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">版本非 auto</span>
+        <strong id="stNonAuto">0</strong>
+        <span class="stat-note">已上报但版本旧</span>
+      </article>
+    </section>
+
+    <section class="panel" id="resultPanel" hidden>
+      <div class="toolbar">
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-tab="fail" type="button">未达标<span class="n" id="nFail"></span></button>
+          <button class="tab" data-tab="missing" type="button">从未上报<span class="n" id="nMissing"></span></button>
+          <button class="tab" data-tab="nonauto" type="button">版本非 auto<span class="n" id="nNonAuto"></span></button>
+          <button class="tab" data-tab="ok" type="button">已达标<span class="n" id="nOk"></span></button>
+          <button class="tab" data-tab="all" type="button">全部<span class="n" id="nAll"></span></button>
+        </div>
+        <div class="search-wrap">
+          <label for="searchInput">搜索</label>
+          <input id="searchInput" type="search" placeholder="计算机名 / 设备名称 / 分组 / 脚本版本" autocomplete="off">
+        </div>
+        <div class="compare-actions">
+          <button id="copyBtn" class="btn" type="button" title="复制当前列表中的计算机名（每行一个）">复制计算机名</button>
+          <button id="exportBtn" class="btn" type="button">导出 CSV</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="compareTable">
+          <thead>
+            <tr>
+              <th data-key="cn">计算机名<span class="sort-ind">▲▼</span></th>
+              <th data-key="dev">设备名称<span class="sort-ind">▲▼</span></th>
+              <th data-key="status">状态<span class="sort-ind">▲▼</span></th>
+              <th data-key="group">分组<span class="sort-ind">▲▼</span></th>
+              <th data-key="os">系统版本<span class="sort-ind">▲▼</span></th>
+              <th data-key="last">最后在线<span class="sort-ind">▲▼</span></th>
+              <th data-key="script">脚本版本<span class="sort-ind">▲▼</span></th>
+              <th data-key="verdict">判定<span class="sort-ind">▲▼</span></th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+
+      <div class="panel-footer">
+        <span id="resultCount">0 台设备</span>
+        <span id="extraNote" class="muted"></span>
+      </div>
+    </section>
+
+    <p class="page-watermark">Compare the full device roster against reported inventory to find missing auto agents.</p>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/compare.js"></script>
+</body>
+</html>

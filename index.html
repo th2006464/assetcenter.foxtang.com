@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
   <div class="app-shell">
@@ -23,6 +23,7 @@
         <div class="header-actions-row">
           <div class="top-actions" aria-label="数据操作">
             <a class="btn btn-primary" href="dashboard.html" title="打开可视化仪表盘">仪表盘</a>
+            <a class="btn" href="compare.html" title="上传两张表对比，找出没装 auto 脚本的设备">对比工具</a>
             <button id="refreshBtn" class="btn" type="button">刷新数据</button>
             <button id="exportBtn" class="btn" type="button">导出 CSV</button>
             <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
@@ -116,7 +117,7 @@
     <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
   </div>
 
-  <script src="js/common.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/common.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>

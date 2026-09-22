@@ -165,18 +165,18 @@ function render(){
 }
 
 async function loadDevices(){
-  $("statusText").textContent="正在读取数据"; $("statusDot").className="status-dot";
+  setStatus("正在读取数据");
   try{
     const res=await fetch(API_URL,{cache:"no-store"});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");
     allDevices=data; updateStats(data); currentPage=1; render();
-    $("statusText").textContent="数据正常"; $("statusDot").className="status-dot ok";
+    setStatusUploadTime(allDevices);          /* 右上角展示最近一次上报时间 */
     $("lastUpdated").textContent="页面刷新时间："+new Date().toLocaleString();
   }catch(e){
     console.error(e);
-    $("statusText").textContent="读取失败"; $("statusDot").className="status-dot err";
+    setStatus("读取失败","err","无法读取设备数据，请检查 Worker / CORS / API 地址");
     $("deviceBody").innerHTML='<tr><td colspan="12" class="empty-state">无法读取设备数据，请检查 Worker / CORS / API 地址。</td></tr>';
   }
 }

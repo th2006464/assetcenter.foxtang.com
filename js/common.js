@@ -35,6 +35,39 @@ function formatBeijingTime(v,withSeconds=true){
   return withSeconds?`${p.date} ${p.time}:${p.seconds}`:`${p.date} ${p.time}`;
 }
 
+/* ---------- 右上角状态位 ----------
+   加载成功后不再显示“数据正常”，改为展示「数据上传时间」＝全量设备里
+   report_time 最大的那一条，也就是最近一次客户端上报的时间（北京时间）。
+   devices 为空或全部没有可解析的 report_time 时，显示“数据上传时间未知”。 */
+function latestReportTime(devices){
+  let latest=null,latestMs=-Infinity;
+  (devices||[]).forEach(d=>{
+    const dt=parseDate(d&&d.report_time);
+    if(!dt)return;
+    const ms=dt.getTime();
+    if(ms>latestMs){latestMs=ms;latest=d.report_time}
+  });
+  return latest;
+}
+
+/* text / dot 统一走这里，顺带管理 title，避免上一次的提示残留 */
+function setStatus(text,dotClass,title){
+  const dot=$("statusDot"),label=$("statusText");
+  if(label){
+    label.textContent=text;
+    if(title)label.title=title;else label.removeAttribute("title");
+  }
+  if(dot)dot.className="status-dot"+(dotClass?" "+dotClass:"");
+}
+
+function setStatusUploadTime(devices){
+  const latest=latestReportTime(devices);
+  const p=latest?beijingParts(latest):null;
+  if(!p){setStatus("数据上传时间未知","","暂无可解析的上报时间");return}
+  setStatus(`数据上传时间：${p.date} ${p.time}`,"ok",
+    `最近一次设备上报：${formatBeijingTime(latest)}（北京时间）`);
+}
+
 /* ---------- C 盘容量（Agent v1.3.0 新增） ----------
    Worker 返回 c_drive_total_gb / c_drive_free_gb（单位 GB，可能为 null）。
    旧 Agent 没有这两个字段 → 一律返回 null，界面显示“—”，排序时排在最后。 */

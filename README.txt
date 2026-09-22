@@ -62,7 +62,7 @@ const API_URL = "https://ams.foxtang.com/devices";
 - 顶部胶囊从左到右是：仪表盘 / 刷新数据 / 导出 CSV / 数据状态。`◐` 主题切换是胶囊右侧的独立圆形按钮（`.theme-toggle-standalone`），不放在胶囊内，避免贴近分隔线。
 - 页面跳转按钮（仪表盘 / 设备明细）带 `btn-primary`，显示为 `--accent` 强调色以突出导航；刷新数据、导出 CSV 保持普通文字色，不使用蓝色。
 - **每页显示**位于搜索框右侧（`.toolbar` 内），修改 `pageSize`（20、50、100、200 或全部），并回到第 1 页重新渲染。
-- **数据正常 / 读取失败**：由 `loadDevices()` 根据请求状态更新 `#statusText`、`#statusDot` 和对应颜色。
+- **数据上传时间 / 读取失败**：`loadDevices()` 成功后调用 `setStatusUploadTime()`，取全量设备里 `report_time` 最大的一条（最近一次上报），按北京时间显示为「数据上传时间：YYYY-MM-DD HH:mm」，鼠标悬停可看到秒级完整时间；读取失败时显示「读取失败」并转红点，无可用上报时间时显示「数据上传时间未知」（灰点）。
 
 ### 页面跳转
 

@@ -4,7 +4,7 @@
 let devices = [];
 
 const PALETTE = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)","var(--chart-6)","var(--chart-7)","var(--chart-8)"];
-/* 活跃度 6 档（3h / 3-24h / 1-3d / 4-7d / 8-30d / 30d+）逐档变红 */
+/* 活跃度 6 档（3h / 3-24h / 1-3d / 4-7d / 8-30d / ge30d）逐档变红 */
 const RAMP = ["var(--ramp-1)","var(--ramp-2)","var(--ramp-3)","var(--ramp-4)","var(--ramp-5)","var(--ramp-6)"];
 
 /* C 盘剩余空间分档（GB）。阈值与明细表的低空间预警规则保持一致。 */
@@ -26,7 +26,7 @@ const BUCKETS = [
   ["1-3 天",    a => a >= 1 && a < 3,   "1-3d"],
   ["4-7 天",    a => a >= 3 && a < 7,   "4-7d"],
   ["8-30 天",   a => a >= 7 && a < 30,  "8-30d"],
-  ["30 天以上", a => a >= 30,           "30d+"]
+  ["30 天以上", a => a >= 30,           "ge30d"]
 ];
 
 /* ---------- helpers ---------- */

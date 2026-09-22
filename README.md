@@ -38,7 +38,7 @@
 
 | key | 可选 value | 含义 |
 | --- | --- | --- |
-| `activity` | `3h` `3h-24h` `1-3d` `4-7d` `8-30d` `30d+` `unknown` `24h` `7d+` | 按最后上报时间分档 |
+| `activity` | `3h` `3h-24h` `1-3d` `4-7d` `8-30d` `ge30d` `unknown` `24h` `ge7d` | 按最后上报时间分档 |
 | `vpn` | `recent` `idle` `none` | 24h 内有连接 / 有账号但超 24h / 未接入 |
 | `form` | `笔记本` `台式机` `其他` | 按型号关键词识别的设备形态 |
 | `outlook` | `bound` `unbound` | 是否登记 Outlook 邮箱 |
@@ -50,7 +50,11 @@
 >
 > 注意看板 KPI 用的是**汇总档**（跨细分档位），不是 3 小时窗口：
 > - 「24 小时内上报」→ `filter=activity:24h`（`a < 1` 天，等于 `3h` ∪ `3h-24h`）
-> - 「7 天未上报」→ `filter=activity:7d+`（`a >= 7` 天，等于 `8-30d` ∪ `30d+`）
+> - 「7 天未上报」→ `filter=activity:ge7d`（`a >= 7` 天，等于 `8-30d` ∪ `ge30d`）
+>
+> **筛选值里禁止出现 `+`**：`URLSearchParams` 会把 URL 里的 `+` 解码成空格，
+> `?filter=activity:30d+` 实际拿到 `"30d "` 匹配不上，筛选会**静默失效**（显示全量却不报错）。
+> 所以「大于等于」统一用 `ge` 前缀（`ge7d` / `ge30d`，与 disk 的 `ge100` 一致）。
 >
 > 明细表统计卡另有 **24 小时**窗口，定义在 `RECENT_WINDOW_HOURS`，由 `reportedWithinDay()` 计算。
 

@@ -12,6 +12,7 @@
 .dz-file{margin-top:12px;font-size:12px;font-weight:700;color:var(--accent);word-break:break-all;min-height:16px}
 .dz-tag{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(37,99,235,.1);color:var(--accent)}
 .dz-tag.warn{background:rgba(217,119,6,.14);color:var(--warn)}
+.dz-cnt{display:block;margin-top:6px;font-size:11px;color:var(--muted);font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
 @media (max-width:900px){.upload-grid{grid-template-columns:1fr}}
 
 /* ---------- 操作条 ---------- */
@@ -36,6 +37,21 @@ table#compareTable{min-width:1080px}
 html[data-theme="dark"] .verdict.ok{background:rgba(74,222,128,.16);color:#4ade80}
 html[data-theme="dark"] .verdict.missing{background:rgba(248,113,113,.16);color:#f87171}
 html[data-theme="dark"] .verdict.nonauto{background:rgba(251,191,36,.18);color:#fbbf24}
+
+/* 在线 / 离线 状态 */
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.status-pill::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor}
+.status-pill.online{background:rgba(22,163,74,.12);color:var(--good)}
+.status-pill.offline{background:rgba(107,114,128,.14);color:var(--muted)}
+html[data-theme="dark"] .status-pill.online{background:rgba(74,222,128,.16);color:#4ade80}
+html[data-theme="dark"] .status-pill.offline{background:rgba(156,163,175,.18);color:#9ca3af}
+
+/* 处理建议：可立即推送 / 待上线推送 / 无需处理 */
+.suggest{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.suggest.now{background:var(--accent);color:#fff}
+.suggest.later{background:rgba(217,119,6,.18);color:var(--warn);border:1px solid rgba(217,119,6,.45)}
+.suggest.done{color:var(--muted)}
+html[data-theme="dark"] .suggest.later{background:rgba(251,191,36,.18);color:#fbbf24;border-color:rgba(251,191,36,.4)}
 
 /* 重名角标：同一计算机名在资产表有多条记录（不同序列号） */
 .dup-flag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(217,119,6,.16);color:var(--warn);cursor:help;vertical-align:middle}

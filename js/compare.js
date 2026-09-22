@@ -4,14 +4,24 @@
 const VERDICT = {
   ok:      { text: "已装 auto",   cls: "ok" },
   missing: { text: "从未上报",    cls: "missing" },
-  nonauto: { text: "版本非 auto", cls: "nonauto" }
+  nonauto: { text: "未装 auto",   cls: "nonauto" }
 };
 /* 排序时的优先级：越需要跟进的排越前 */
 const VERDICT_RANK = { missing: 0, nonauto: 1, ok: 2 };
 
+/* 处理建议：在线未装 → 现在就能推；离线未装 → 等上线再推 */
+const SUGGEST = {
+  now:   { text: "可立即推送", cls: "now" },
+  later: { text: "待上线推送", cls: "later" },
+  ok:    { text: "无需处理",   cls: "done" }
+};
+const SUGGEST_RANK = { now: 0, later: 1, ok: 2 };
+
 const state = {
   loaded: { std: null, ac: null },   /* {name, rows, kind} */
   stdRows: [], acRows: [],
+  stdHasAutoCol: false, stdAutoColName: "",
+  source: "", disagree: 0, crossChecked: 0,
   results: [],
   tab: "fail", q: "",
   sortKey: "cn", sortAsc: true
@@ -92,15 +102,23 @@ function parseStd(rows, headerAt) {
   const iGroup = colOf(header, ["分组"]);
   const iOs = colOf(header, ["系统版本"]);
   const iLast = colOf(header, ["最后在线时间"]);
+  /* 新版向日葵导出自带「自动化脚本已配置」列 —— 这是权威判定源，优先用它 */
+  const iAuto = colOf(header, ["自动化脚本已配置", "自动化脚本版本", "脚本版本"]);
   const out = [];
   for (let i = headerAt + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every(c => !safe(c).trim())) continue;
     const cn = cell(r, iCn);
     if (!cn || cn === "-") continue;
-    out.push({ cn, dev: cell(r, iDev), status: cell(r, iStatus), group: cell(r, iGroup), os: cell(r, iOs), last: cell(r, iLast) });
+    const autoCfg = iAuto >= 0 ? cell(r, iAuto) : "";
+    out.push({
+      cn, dev: cell(r, iDev), status: cell(r, iStatus), group: cell(r, iGroup),
+      os: cell(r, iOs), last: cell(r, iLast),
+      /* #N/A / 空 视为「未配置」 */
+      autoCfg: (autoCfg && autoCfg.toUpperCase() !== "#N/A") ? autoCfg : ""
+    });
   }
-  return out;
+  return { rows: out, hasAutoCol: iAuto >= 0, autoColName: iAuto >= 0 ? header[iAuto] : "" };
 }
 
 function parseAc(rows, headerAt) {
@@ -139,6 +157,20 @@ function setSlot(slot, name, tagText, warn) {
   if (dzEl) { dzEl.classList.toggle("filled", !!name); dzEl.classList.toggle("err", !!warn); }
 }
 
+/* 让文件名匹配上能显示「解析到 N 行」反馈，避免「上传完没动静」的疑惑 */
+function setSlotCount(slot, n) {
+  const el = $("cnt" + (slot === "std" ? "Std" : "Ac"));
+  if (!el) return;
+  el.textContent = n > 0 ? ` · 解析 ${n} 行` : "";
+  el.hidden = n <= 0;
+}
+
+/* 暴露一个全局钩子，方便排查：把内部状态写到 window.stateDebug 上 */
+function dumpDebug(reason) {
+  if (typeof window === "undefined") return;
+  window.stateDebug = { reason, loaded: state.loaded, stdRows: state.stdRows.length, acRows: state.acRows.length, results: state.results.length };
+}
+
 /* ---------- 载入并自动归位 ---------- */
 async function handleFile(file, slot) {
   if (!file) return;
@@ -162,35 +194,89 @@ async function handleFile(file, slot) {
 }
 
 function tryFinalize() {
-  const a = state.loaded.std, b = state.loaded.ac;
-  if (!a || !b) return;                       /* 还差一个文件 */
-  if (a.kind === b.kind) {
-    showMsg(`两个文件都识别为「${a.kind === "std" ? "标准设备表" : "资产上报导出"}」，无法比对。请确认其中一个是全量标准表、另一个是资产上报导出。`, "err");
+  /* 按识别结果取，不按槽位 —— 放反了也能跑 */
+  const files = [state.loaded.std, state.loaded.ac].filter(Boolean);
+  if (!files.length) { dumpDebug("no file"); return; }
+
+  const stdSrc = files.find(f => f.kind === "std");
+  const acSrc = files.find(f => f.kind === "ac");
+
+  if (!stdSrc) {
+    if (files.length === 2) {
+      showMsg("两份文件都识别为「资产上报导出」，缺少<b>标准设备表</b>（向日葵导出）。", "err");
+      dumpDebug("no std");
+    }
     return;
   }
+
+  try {
+    /* 归位显示（只在真的放反时提示） */
+    const stdSlotHoldsStd = state.loaded.std && state.loaded.std.kind === "std";
+    if (!stdSlotHoldsStd) {
+      setSlot("std", stdSrc.name, "标准设备表（已自动归位）", false);
+      if (acSrc) setSlot("ac", acSrc.name, "资产上报导出（已自动归位）", false);
+    }
+
+    const stdParsed = parseStd(stdSrc.rows, detectKind(stdSrc.rows).headerAt);
+    state.stdRows = stdParsed.rows;
+    state.stdHasAutoCol = stdParsed.hasAutoCol;
+    state.stdAutoColName = stdParsed.autoColName;
+    setSlotCount("std", state.stdRows.length);
+
+    if (!state.stdRows.length) {
+      showMsg("标准表解析到的有效行为 0，请确认文件含「计算机名」列且内容完整。", "err");
+      dumpDebug("std empty"); return;
+    }
+
+    /* 标准表自带「自动化脚本已配置」列时，它是权威源，不强制要资产表；
+       老版本导出没有这列，才需要用资产上报 CSV 比对。 */
+    if (!state.stdHasAutoCol && !acSrc) {
+      showMsg("这份标准表<b>没有</b>「自动化脚本已配置」列，请在右侧再上传一份资产上报导出 CSV 用于比对。", "info");
+      dumpDebug("need ac"); return;
+    }
+
+    if (acSrc) {
+      state.acRows = parseAc(acSrc.rows, detectKind(acSrc.rows).headerAt);
+      setSlotCount("ac", state.acRows.length);
+      if (!state.acRows.length) {
+        showMsg("资产表解析到的有效行为 0，请确认文件含 ComputerName / ScriptVersion 列且内容完整。", "err");
+        dumpDebug("ac empty"); return;
+      }
+    } else {
+      state.acRows = [];
+      setSlotCount("ac", 0);
+    }
+
+    hideMsg();
+    compare();
+    $("guideBox").hidden = true;
+    $("statGrid").hidden = false;
+    $("resultPanel").hidden = false;
+    render();
+    dumpDebug("ok");
+  } catch (e) {
+    console.error(e);
+    showMsg("对比过程出错：" + escapeHtml(safe(e && e.message || String(e))) + "。请打开浏览器控制台（F12）截图反馈。", "err");
+    dumpDebug("threw: " + (e && e.message));
+  }
+}
+
+/* 完全清空：回到「刚打开」状态 */
+function resetAll(){
+  state.loaded = { std: null, ac: null };
+  state.stdRows = []; state.acRows = []; state.results = []; state.extra = 0;
+  state.tab = "fail"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
+  ["std","ac"].forEach(slot => {
+    setSlot(slot, "", "", false);
+    setSlotCount(slot, 0);
+    const input = $("file" + (slot === "std" ? "Std" : "Ac"));
+    if (input) input.value = "";
+  });
+  $("guideBox").hidden = false;
+  $("statGrid").hidden = true;
+  $("resultPanel").hidden = true;
   hideMsg();
-
-  /* 放错位置也能正常跑：按识别结果归位 */
-  const stdSrc = a.kind === "std" ? a : b;
-  const acSrc = a.kind === "std" ? b : a;
-  const swapped = (a.kind !== "std");
-  if (swapped) {
-    setSlot("std", stdSrc.name, "标准设备表（已自动归位）", false);
-    setSlot("ac", acSrc.name, "资产上报导出（已自动归位）", false);
-  }
-
-  state.stdRows = parseStd(stdSrc.rows, detectKind(stdSrc.rows).headerAt);
-  state.acRows = parseAc(acSrc.rows, detectKind(acSrc.rows).headerAt);
-  if (!state.stdRows.length || !state.acRows.length) {
-    showMsg("解析到的有效数据行为 0，请检查文件内容是否完整。", "err");
-    return;
-  }
-
-  compare();
-  $("guideBox").hidden = true;
-  $("statGrid").hidden = false;
-  $("resultPanel").hidden = false;
-  render();
+  dumpDebug("reset");
 }
 
 /* ---------- 比对 ---------- */
@@ -210,21 +296,50 @@ function compare() {
     if ((t ? t.getTime() : -Infinity) > (pt ? pt.getTime() : -Infinity)) map.set(k, d);
   });
 
+  /* 判定源：标准表自带「自动化脚本已配置」列时以它为准（向日葵是权威源），
+     否则退回用资产上报的 ScriptVersion 匹配。 */
+  const useStdCol = state.stdHasAutoCol;
+  state.source = useStdCol
+    ? `向日葵导出「${state.stdAutoColName}」列`
+    : "资产上报 ScriptVersion（按计算机名匹配）";
+
+  let disagree = 0, crossChecked = 0;
   state.results = state.stdRows.map(s => {
     const k = s.cn.toUpperCase();
     const hit = map.get(k);
     const versions = all.get(k) || [];
-    /* 同名多条记录且脚本版本不一致 → 标出来，避免「到底算装没装」被静默吞掉 */
     const uniqueV = Array.from(new Set(versions));
     const dup = versions.length > 1;
-    if (!hit) return Object.assign({}, s, { script: "", verdict: "missing", dup, versions: uniqueV });
+
+    let verdict, script;
+    if (useStdCol) {
+      script = s.autoCfg || "";
+      verdict = isAutoReport(script) ? "ok" : "nonauto";
+      /* 资产表也有这台机时顺带交叉核对，不一致计数（仍以向日葵为准） */
+      if (hit) {
+        crossChecked++;
+        const acVerdict = isAutoReport(hit.script) ? "ok" : "nonauto";
+        if (acVerdict !== verdict) disagree++;
+      }
+    } else if (hit) {
+      script = hit.script;
+      verdict = isAutoReport(script) ? "ok" : "nonauto";
+    } else {
+      script = "";
+      verdict = "missing";
+    }
+
+    /* 在线状态来自向日葵；离线设备现在推不了，要等上线 */
+    const online = /在线/.test(safe(s.status)) && !/离线/.test(safe(s.status));
+    const suggestion = verdict === "ok" ? "ok"
+      : (online ? "now" : "later");
     return Object.assign({}, s, {
-      script: hit.script,
-      report: hit.report,
-      dup, versions: uniqueV,
-      verdict: isAutoReport(hit.script) ? "ok" : "nonauto"
+      script, verdict, dup, versions: uniqueV, online, suggestion
     });
   });
+
+  state.disagree = disagree;
+  state.crossChecked = crossChecked;
 
   /* 只在资产表出现、标准表没有的设备 —— 不纳入比对，仅提示 */
   const stdKeys = new Set(state.stdRows.map(s => s.cn.toUpperCase()));
@@ -233,8 +348,12 @@ function compare() {
 
 /* ---------- 渲染 ---------- */
 function counts() {
-  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, fail: 0 };
-  state.results.forEach(r => { c[r.verdict]++; });
+  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, fail: 0, now: 0, later: 0 };
+  state.results.forEach(r => {
+    c[r.verdict]++;
+    if (r.suggestion === "now") c.now++;
+    if (r.suggestion === "later") c.later++;
+  });
   c.fail = c.missing + c.nonauto;
   return c;
 }
@@ -247,12 +366,14 @@ function renderStats() {
   $("stOk").textContent = c.ok;
   $("stOkNote").textContent = "占比 " + pct(c.ok, c.all);
   $("stFail").textContent = c.fail;
-  $("stFailNote").textContent = "占比 " + pct(c.fail, c.all) + " · 需要跟进";
-  $("stMissing").textContent = c.missing;
-  $("stNonAuto").textContent = c.nonauto;
+  $("stFailNote").textContent = "占比 " + pct(c.fail, c.all) + " · 需要推送";
+  $("stNow").textContent = c.now;
+  $("stNowNote").textContent = "在线，现在就能推";
+  $("stLater").textContent = c.later;
+  $("stLaterNote").textContent = "离线，等上线再推";
   $("nFail").textContent = c.fail;
-  $("nMissing").textContent = c.missing;
-  $("nNonAuto").textContent = c.nonauto;
+  $("nNow").textContent = c.now;
+  $("nLater").textContent = c.later;
   $("nOk").textContent = c.ok;
   $("nAll").textContent = c.all;
 }
@@ -260,9 +381,16 @@ function renderStats() {
 function visibleRows() {
   const q = state.q.trim().toLowerCase();
   let rows = state.results.filter(r => {
-    if (state.tab === "all") return true;
-    if (state.tab === "fail") return r.verdict !== "ok";
-    return r.verdict === state.tab;
+    switch (state.tab) {
+      case "all":    return true;
+      case "fail":   return r.verdict !== "ok";
+      case "now":    return r.suggestion === "now";
+      case "later":  return r.suggestion === "later";
+      case "ok":     return r.verdict === "ok";
+      case "missing": return r.verdict === "missing";
+      case "nonauto": return r.verdict === "nonauto";
+      default: return true;
+    }
   });
   if (q) {
     rows = rows.filter(r =>
@@ -271,6 +399,8 @@ function visibleRows() {
   rows.sort((a, b) => {
     let av, bv;
     if (state.sortKey === "verdict") { av = VERDICT_RANK[a.verdict]; bv = VERDICT_RANK[b.verdict]; }
+    else if (state.sortKey === "suggestion") { av = SUGGEST_RANK[a.suggestion]; bv = SUGGEST_RANK[b.suggestion]; }
+    else if (state.sortKey === "online") { av = a.online ? 0 : 1; bv = b.online ? 0 : 1; }
     else { av = safe(a[state.sortKey]).toLowerCase(); bv = safe(b[state.sortKey]).toLowerCase(); }
     if (av < bv) return state.sortAsc ? -1 : 1;
     if (av > bv) return state.sortAsc ? 1 : -1;
@@ -284,18 +414,26 @@ function renderTable() {
   $("resultCount").textContent = rows.length === 0 ? "0 台设备"
     : (rows.length === state.results.length ? `共 ${rows.length} 台设备`
       : `共 ${rows.length} 台设备（总 ${state.results.length}）`);
-  $("extraNote").textContent = state.extra
-    ? `另有 ${state.extra} 台只在资产表中、不在标准表内，未纳入比对。`
-    : "";
+
+  /* 底部说明：判定依据 + 交叉核对结果 + 资产表多出来的设备 */
+  const notes = [`判定依据：${escapeHtml(state.source)}`];
+  if (state.disagree > 0) {
+    notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），已以向日葵为准`);
+  }
+  if (state.extra) notes.push(`另有 ${state.extra} 台只在资产表中、不在标准表内，未纳入比对`);
+  $("extraNote").innerHTML = notes.join(" · ");
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" class="empty-state">没有匹配的设备</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty-state">没有匹配的设备</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => {
     const v = VERDICT[r.verdict];
+    const sg = SUGGEST[r.suggestion];
     const scriptCls = !r.script ? "none" : (r.verdict === "nonauto" ? "bad" : "");
-    const scriptText = r.script ? escapeHtml(r.script) : "—";
+    const scriptText = r.script ? escapeHtml(r.script) : "未配置";
+    /* 在线/离线：离线设备现在推不了，是「待上线推送」的关键依据 */
+    const stCls = r.online ? "online" : "offline";
     /* 同名多台机器：把其它版本放到 title 里，并在版本号旁挂个角标 */
     const dupFlag = r.dup
       ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
@@ -303,12 +441,13 @@ function renderTable() {
     return `<tr>
       <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}</td>
       <td>${escapeHtml(r.dev || "—")}</td>
-      <td>${escapeHtml(r.status || "—")}</td>
+      <td><span class="status-pill ${stCls}">${escapeHtml(r.status || "—")}</span></td>
       <td>${escapeHtml(r.group || "—")}</td>
       <td>${escapeHtml(r.os || "—")}</td>
       <td>${escapeHtml(r.last || "—")}</td>
       <td class="script-cell ${scriptCls}">${scriptText}</td>
       <td><span class="verdict ${v.cls}">${v.text}</span></td>
+      <td><span class="suggest ${sg.cls}">${sg.text}</span></td>
     </tr>`;
   }).join("");
 }
@@ -389,4 +528,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   $("exportBtn").addEventListener("click", exportCsv);
   $("copyBtn").addEventListener("click", copyNames);
+  const resetBtn = $("resetBtn");
+  if (resetBtn) resetBtn.addEventListener("click", resetAll);
 });

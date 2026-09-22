@@ -25,6 +25,7 @@
           <div class="top-actions" aria-label="页面导航">
             <a class="btn btn-primary" href="index.html" title="设备明细表">设备明细</a>
             <a class="btn" href="dashboard.html" title="数据看板">仪表盘</a>
+            <button id="resetBtn" class="btn" type="button" title="清空当前选择，重新上传">重置</button>
           </div>
           <button id="themeToggle" class="theme-toggle-standalone" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
         </div>
@@ -41,17 +42,20 @@
         <input id="fileStd" type="file" accept=".csv,text/csv" hidden>
         <div class="dz-file" id="nameStd"></div>
         <span class="dz-tag" id="tagStd" hidden></span>
+        <span class="dz-cnt" id="cntStd" hidden></span>
       </label>
 
       <label class="dropzone" id="dzAc" for="fileAc">
-        <div class="dz-title">② 资产上报导出</div>
+        <div class="dz-title">② 资产上报导出（可选）</div>
         <div class="dz-hint">
           本站在设备明细页导出的 <code>asset-center</code> CSV<br>
-          需含 <code>ComputerName</code> / <code>ScriptVersion</code> 列
+          需含 <code>ComputerName</code> / <code>ScriptVersion</code> 列<br>
+          <b>标准表自带「自动化脚本已配置」列时可不传</b>
         </div>
         <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
         <div class="dz-file" id="nameAc"></div>
         <span class="dz-tag" id="tagAc" hidden></span>
+        <span class="dz-cnt" id="cntAc" hidden></span>
       </label>
     </section>
 
@@ -59,15 +63,16 @@
 
     <section class="panel" id="guideBox">
       <div class="guide">
-        <b>用途</b>：拿「全量设备清单」对比「实际资产上报数据」，抓出<b>还没装上自动上报脚本（auto）的计算机名</b>。
+        <b>用途</b>：找出<b>还没装上自动上报脚本（auto）的设备</b>，并按「在线 / 离线」拆成两份清单 ——
+        在线的现在就能推，离线的等它们上线再推。
         <ol>
-          <li>左边上传全量标准表（向日葵导出），右边上传本站导出的资产 CSV —— 两个都传完会自动比对。</li>
-          <li>放错位置也没关系，页面会按表头自动识别归位。</li>
-          <li>判定口径：<b>已装 auto</b> = 脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）；
-              <b>从未上报</b> = 资产表里查不到这台机；<b>版本非 auto</b> = 有上报但版本不是 auto（如 <code>1.1.0</code>、<code>1.3.2-test</code>）。</li>
-          <li>计算机名不区分大小写比对，前后空格自动忽略。</li>
-          <li>同一个计算机名在资产表有多条记录时（实测存在两台机器重名、序列号不同），
-              <b>取最近一次上报</b>那条；版本不一致的行会挂「重名」角标，鼠标悬停可看到全部版本。</li>
+          <li>左侧上传<b>向日葵导出的标准设备表</b>（必须）。放错位置没关系，页面会按表头自动识别归位。</li>
+          <li>新版向日葵导出自带<b>「自动化脚本已配置」列</b>，页面<b>以它为准</b>判定，此时右侧资产表可不传。</li>
+          <li>老版本导出没有这列时，才需要在右侧上传资产上报导出 CSV，按计算机名匹配 <code>ScriptVersion</code>。</li>
+          <li>两份都有时会交叉核对，<b>不一致以向日葵为准</b>，并在底部标出不一致台数。</li>
+          <li>判定口径：脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）才算达标；
+              <code>#N/A</code> 视为<b>未配置</b>，同样需要推送。</li>
+          <li>处理建议：<b>可立即推送</b> = 在线且未装；<b>待上线推送</b> = 离线且未装（现在推不了，先记下来）。</li>
         </ol>
       </div>
     </section>
@@ -84,28 +89,28 @@
         <span class="stat-note" id="stOkNote">占比 —</span>
       </article>
       <article class="stat-card">
-        <span class="stat-label">未达标</span>
+        <span class="stat-label">未装 auto</span>
         <strong id="stFail">0</strong>
-        <span class="stat-note" id="stFailNote">需要跟进</span>
+        <span class="stat-note" id="stFailNote">需要推送</span>
       </article>
       <article class="stat-card">
-        <span class="stat-label">从未上报</span>
-        <strong id="stMissing">0</strong>
-        <span class="stat-note">资产表查无此机</span>
+        <span class="stat-label">可立即推送</span>
+        <strong id="stNow">0</strong>
+        <span class="stat-note" id="stNowNote">在线，现在就能推</span>
       </article>
       <article class="stat-card">
-        <span class="stat-label">版本非 auto</span>
-        <strong id="stNonAuto">0</strong>
-        <span class="stat-note">已上报但版本旧</span>
+        <span class="stat-label">待上线推送</span>
+        <strong id="stLater">0</strong>
+        <span class="stat-note" id="stLaterNote">离线，等上线再推</span>
       </article>
     </section>
 
     <section class="panel" id="resultPanel" hidden>
       <div class="toolbar">
         <div class="tabs" id="tabs">
-          <button class="tab active" data-tab="fail" type="button">未达标<span class="n" id="nFail"></span></button>
-          <button class="tab" data-tab="missing" type="button">从未上报<span class="n" id="nMissing"></span></button>
-          <button class="tab" data-tab="nonauto" type="button">版本非 auto<span class="n" id="nNonAuto"></span></button>
+          <button class="tab active" data-tab="fail" type="button">未装 auto<span class="n" id="nFail"></span></button>
+          <button class="tab" data-tab="now" type="button">可立即推送<span class="n" id="nNow"></span></button>
+          <button class="tab" data-tab="later" type="button">待上线推送<span class="n" id="nLater"></span></button>
           <button class="tab" data-tab="ok" type="button">已达标<span class="n" id="nOk"></span></button>
           <button class="tab" data-tab="all" type="button">全部<span class="n" id="nAll"></span></button>
         </div>
@@ -131,6 +136,7 @@
               <th data-key="last">最后在线<span class="sort-ind">▲▼</span></th>
               <th data-key="script">脚本版本<span class="sort-ind">▲▼</span></th>
               <th data-key="verdict">判定<span class="sort-ind">▲▼</span></th>
+              <th data-key="suggestion">处理建议<span class="sort-ind">▲▼</span></th>
             </tr>
           </thead>
           <tbody id="resultBody"></tbody>

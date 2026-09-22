@@ -35,6 +35,19 @@ function formatBeijingTime(v,withSeconds=true){
   return withSeconds?`${p.date} ${p.time}:${p.seconds}`:`${p.date} ${p.time}`;
 }
 
+/* ---------- “活跃”窗口：3 小时内上报即视为在线 ----------
+   明细表统计卡、看板 KPI、活跃度分档、结构化筛选全部共用这一个窗口，
+   改 ACTIVE_WINDOW_HOURS 就能全局生效。AGE_DAYS 版供 ageDays() 的结果比较。 */
+const ACTIVE_WINDOW_HOURS = 3;
+const ACTIVE_WINDOW_MS = ACTIVE_WINDOW_HOURS * 60 * 60 * 1000;
+const ACTIVE_WINDOW_DAYS = ACTIVE_WINDOW_HOURS / 24;   /* 3h = 0.125 天 */
+
+/* 最后上报时间落在活跃窗口内（report_time 可解析且距今 < 3 小时） */
+function reportedWithinWindow(v){
+  const d=parseDate(v);
+  return !!d && (Date.now()-d.getTime()) < ACTIVE_WINDOW_MS;
+}
+
 /* ---------- 右上角状态位 ----------
    加载成功后不再显示“数据正常”，改为展示「数据上传时间」＝全量设备里
    report_time 最大的那一条，也就是最近一次客户端上报的时间（北京时间）。
@@ -133,13 +146,14 @@ function formFactor(v){
    key/value 与看板图表一一对应，两边共用同一份定义，避免口径漂移。 */
 const FILTER_SPECS={
   activity:{
-    labels:{"24h":"24 小时内上报","1-3d":"1-3 天前上报","4-7d":"4-7 天前上报",
-            "8-30d":"8-30 天前上报","30d+":"30 天以上未上报","unknown":"上报时间未知"},
+    labels:{"3h":"3 小时内上报","3h-24h":"3-24 小时前上报","1-3d":"1-3 天前上报",
+            "4-7d":"4-7 天前上报","8-30d":"8-30 天前上报","30d+":"30 天以上未上报","unknown":"上报时间未知"},
     test:(d,v)=>{
       const a=ageDays(d.report_time);
       if(v==="unknown")return a===null;
       if(a===null)return false;
-      return ({"24h":a<1,"1-3d":a>=1&&a<3,"4-7d":a>=3&&a<7,"8-30d":a>=7&&a<30,"30d+":a>=30})[v]===true;
+      return ({"3h":a<ACTIVE_WINDOW_DAYS,"3h-24h":a>=ACTIVE_WINDOW_DAYS&&a<1,
+               "1-3d":a>=1&&a<3,"4-7d":a>=3&&a<7,"8-30d":a>=7&&a<30,"30d+":a>=30})[v]===true;
     }
   },
   vpn:{
@@ -177,7 +191,7 @@ const FILTER_SPECS={
   }
 };
 
-/* 把 "activity:24h" 解析成 {key,value}；非法值返回 null。 */
+/* 把 "activity:3h" 解析成 {key,value}；非法值返回 null。 */
 function parseFilterParam(raw){
   if(!raw)return null;
   const i=raw.indexOf(":");

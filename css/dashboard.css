@@ -6,20 +6,20 @@
   --chart-1:#2563eb;--chart-2:#16a34a;--chart-3:#d97706;--chart-4:#dc2626;
   --chart-5:#7c3aed;--chart-6:#0891b2;--chart-7:#db2777;--chart-8:#65a30d;
   --track:#eef1f6;
-  --ramp-1:#16a34a;--ramp-2:#65a30d;--ramp-3:#d97706;--ramp-4:#ea580c;--ramp-5:#dc2626;
+  --ramp-1:#16a34a;--ramp-2:#65a30d;--ramp-3:#d97706;--ramp-4:#ea580c;--ramp-5:#dc2626;--ramp-6:#991b1b;
 }
 html[data-theme="dark"]{
   --chart-1:#60a5fa;--chart-2:#4ade80;--chart-3:#fbbf24;--chart-4:#f87171;
   --chart-5:#a78bfa;--chart-6:#22d3ee;--chart-7:#f472b6;--chart-8:#a3e635;
   --track:#1e293b;
-  --ramp-1:#4ade80;--ramp-2:#a3e635;--ramp-3:#fbbf24;--ramp-4:#fb923c;--ramp-5:#f87171;
+  --ramp-1:#4ade80;--ramp-2:#a3e635;--ramp-3:#fbbf24;--ramp-4:#fb923c;--ramp-5:#f87171;--ramp-6:#fca5a5;
 }
 @media (prefers-color-scheme:dark){
   html:not([data-theme]){
     --chart-1:#60a5fa;--chart-2:#4ade80;--chart-3:#fbbf24;--chart-4:#f87171;
     --chart-5:#a78bfa;--chart-6:#22d3ee;--chart-7:#f472b6;--chart-8:#a3e635;
     --track:#1e293b;
-    --ramp-1:#4ade80;--ramp-2:#a3e635;--ramp-3:#fbbf24;--ramp-4:#fb923c;--ramp-5:#f87171;
+    --ramp-1:#4ade80;--ramp-2:#a3e635;--ramp-3:#fbbf24;--ramp-4:#fb923c;--ramp-5:#f87171;--ramp-6:#fca5a5;
   }
 }
 

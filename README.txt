@@ -85,7 +85,7 @@ const API_URL = "https://ams.foxtang.com/devices";
 - **设备总数**：数组长度。
 - **HP 设备**：`normalizeVendor(manufacturer) === "HP"`，其中 `Hewlett-Packard` 也归一化为 `HP`。
 - **Windows 11**：`osGroup(os_name) === "Windows 11"`，兼容 `os_name` 中版本后缀乱码的情况。
-- **24h 内上报**：`report_time` 可解析且不早于当前时间前 24 小时。
+- **3h 内上报**：`report_time` 可解析且距当前时间不足 3 小时（窗口取 `common.js` 的 `ACTIVE_WINDOW_HOURS`，改一处即全局生效）。
 
 `normalizeVendor()` 与 `osGroup()` 定义在 `js/common.js`，明细表和看板必须共用它们，否则两个页面的厂商数和系统数会不一致。
 
@@ -95,7 +95,7 @@ const API_URL = "https://ams.foxtang.com/devices";
 
 ### 指标口径
 
-- **24h 内上报**：`report_time` 距今小于 1 天。
+- **3h 内上报**：`report_time` 距今小于 3 小时（`ACTIVE_WINDOW_HOURS`），点击下钻到 `filter=activity:3h`。
 - **最近24小时VPN接入**：`forticlient_last_seen` 距今小于 1 天（不是“有 VPN 账号”，后者在 VPN 环形图里体现）。
 - **Windows 11 / Windows 10**：同统计卡的 `osGroup()`，Windows 10 用提醒色调标记待迁移。
 - **30 天未上报**：`report_time` 距今大于等于 30 天，或无法解析。
@@ -103,7 +103,7 @@ const API_URL = "https://ams.foxtang.com/devices";
 
 ### 图表与交互
 
-- 环形图是 SVG `<circle>` 配合 `stroke-dasharray` 绘制，条形图是 CSS 宽度条；两者颜色都取自 `css/dashboard.css` 的 `--chart-1..8` 和 `--ramp-1..5` 变量，切换主题时自动变色。
+- 环形图是 SVG `<circle>` 配合 `stroke-dasharray` 绘制，条形图是 CSS 宽度条；两者颜色都取自 `css/dashboard.css` 的 `--chart-1..8` 和 `--ramp-1..6` 变量，切换主题时自动变色。
 - VPN 环形图分三段：24h 内有连接 / 有账号但超 24h / 未接入 VPN，用来解释“最近24小时VPN接入”这个 KPI 为什么远小于 VPN 账号数。
 - 条形图宽度按“占设备总数的百分比”计算（不是占最大值的比例），右侧同时显示数量与占比；机型 Top 10 顶部还有 `Top N 合计 X 台 · 占 Y%` 摘要。
 - 悬停显示气泡（标签、台数、占比），滚动时自动隐藏。

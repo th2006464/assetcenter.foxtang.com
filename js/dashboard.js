@@ -4,7 +4,8 @@
 let devices = [];
 
 const PALETTE = ["var(--chart-1)","var(--chart-2)","var(--chart-3)","var(--chart-4)","var(--chart-5)","var(--chart-6)","var(--chart-7)","var(--chart-8)"];
-const RAMP = ["var(--ramp-1)","var(--ramp-2)","var(--ramp-3)","var(--ramp-4)","var(--ramp-5)"];
+/* 活跃度 6 档（3h / 3-24h / 1-3d / 4-7d / 8-30d / 30d+）逐档变红 */
+const RAMP = ["var(--ramp-1)","var(--ramp-2)","var(--ramp-3)","var(--ramp-4)","var(--ramp-5)","var(--ramp-6)"];
 
 /* C 盘剩余空间分档（GB）。阈值与明细表的低空间预警规则保持一致。 */
 /* 第四项是对应的结构化筛选值，与 common.js 的 FILTER_SPECS.disk 对齐 */
@@ -20,7 +21,8 @@ let diskThreshold = 20;
 
 /* 第三项是对应的结构化筛选值，与 common.js 的 FILTER_SPECS.activity 对齐 */
 const BUCKETS = [
-  ["24 小时内", a => a < 1,             "24h"],
+  ["3 小时内",  a => a < ACTIVE_WINDOW_DAYS,                 "3h"],
+  ["3-24 小时", a => a >= ACTIVE_WINDOW_DAYS && a < 1,       "3h-24h"],
   ["1-3 天",    a => a >= 1 && a < 3,   "1-3d"],
   ["4-7 天",    a => a >= 3 && a < 7,   "4-7d"],
   ["8-30 天",   a => a >= 7 && a < 30,  "8-30d"],
@@ -233,15 +235,15 @@ function setNote(id,text,tone){
 
 function updateKpis(){
   const total=devices.length;
-  const active24=devices.filter(d=>{const a=ageDays(d.report_time);return a!==null&&a<1}).length;
+  const activeRecent=devices.filter(d=>reportedWithinWindow(d.report_time)).length;
   const vpn=devices.filter(d=>{const a=ageDays(d.forticlient_last_seen);return a!==null&&a<1}).length;
   const win11=devices.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   const win10=devices.filter(d=>osGroup(d.os_name)==="Windows 10").length;
   const stale=devices.filter(d=>{const a=ageDays(d.report_time);return a===null||a>=30}).length;
 
   $("kpiTotal").textContent=total;
-  $("kpiActive24").textContent=active24;
-  setNote("kpiActive24Note",`占比 ${pct(active24,total)}`,active24/total>=0.6?"good":null);
+  $("kpiActiveRecent").textContent=activeRecent;
+  setNote("kpiActiveRecentNote",`占比 ${pct(activeRecent,total)}`,activeRecent/total>=0.6?"good":null);
   $("kpiVpn").textContent=vpn;
   setNote("kpiVpnNote",`占比 ${pct(vpn,total)}`,null);
   $("kpiWin11").textContent=win11;
@@ -311,7 +313,7 @@ function renderCharts(){
 function renderError(message){
   ["chartOs","chartActivity","chartVpn","chartVendor","chartForm","chartOutlook","chartAgent","chartDisk","chartDiskAlert","chartModel"]
     .forEach(id=>{const el=$(id);if(el)el.innerHTML=`<p class="chart-placeholder">${escapeHtml(message)}</p>`});
-  ["kpiTotal","kpiActive24","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
+  ["kpiTotal","kpiActiveRecent","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
   const note=$("diskAlertNote");
   if(note){note.textContent="剩余空间低于阈值";note.classList.remove("alert")}
 }
@@ -370,7 +372,7 @@ function initDrilldown(){
     const query=target&&target.dataset.query;
     if(!query)return;
     /* data-query 两种形态：
-       "filter=activity:24h" → 结构化筛选（活跃度 / VPN / 形态 / 邮箱 / 磁盘分档）
+       "filter=activity:3h" → 结构化筛选（活跃度 / VPN / 形态 / 邮箱 / 磁盘分档）
        "Windows 11" 等裸关键词 → 普通关键字搜索 */
     const m=query.match(/^(q|filter)=(.*)$/);
     location.href=m

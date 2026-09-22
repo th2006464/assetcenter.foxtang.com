@@ -45,8 +45,8 @@ function updateStats(data){
   $("statTotal").textContent=data.length;
   $("statHP").textContent=data.filter(d=>normalizeVendor(d.manufacturer)==="HP").length;
   $("statWin11").textContent=data.filter(d=>osGroup(d.os_name)==="Windows 11").length;
-  const cutoff=Date.now()-86400000;
-  $("statRecent").textContent=data.filter(d=>{const dt=parseDate(d.report_time);return dt&&dt.getTime()>=cutoff}).length;
+  /* 活跃窗口统一用 common.js 的 ACTIVE_WINDOW_HOURS（当前 3 小时） */
+  $("statRecent").textContent=data.filter(d=>reportedWithinWindow(d.report_time)).length;
 }
 
 function compareValues(a,b,key){

@@ -47,6 +47,9 @@ function updateStats(data){
   $("statWin11").textContent=data.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   /* 活跃窗口统一用 common.js 的 ACTIVE_WINDOW_HOURS（当前 3 小时） */
   $("statRecent").textContent=data.filter(d=>reportedWithinWindow(d.report_time)).length;
+  /* 24 小时窗口用 RECENT_WINDOW_HOURS，是 3h 口径的超集（含 3h 内的设备） */
+  const el24=$("statRecent24");
+  if(el24)el24.textContent=data.filter(d=>reportedWithinDay(d.report_time)).length;
 }
 
 function compareValues(a,b,key){

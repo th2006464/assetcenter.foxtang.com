@@ -35,17 +35,33 @@ function formatBeijingTime(v,withSeconds=true){
   return withSeconds?`${p.date} ${p.time}:${p.seconds}`:`${p.date} ${p.time}`;
 }
 
-/* ---------- “活跃”窗口：3 小时内上报即视为在线 ----------
-   明细表统计卡、看板 KPI、活跃度分档、结构化筛选全部共用这一个窗口，
-   改 ACTIVE_WINDOW_HOURS 就能全局生效。AGE_DAYS 版供 ageDays() 的结果比较。 */
+/* ---------- 上报时间窗口 ----------
+   ACTIVE_WINDOW_HOURS =“活跃”窗口（3 小时内上报即视为在线）：明细表统计卡、
+   看板 KPI、活跃度分档、结构化筛选全部共用这一个窗口，改一处即全局生效。
+   RECENT_WINDOW_HOURS = 明细表「24h 内上报」统计卡用的窗口，与活跃窗口分开定义，
+   两个口径互不干扰。AGE_DAYS 版供 ageDays() 的结果比较。 */
 const ACTIVE_WINDOW_HOURS = 3;
 const ACTIVE_WINDOW_MS = ACTIVE_WINDOW_HOURS * 60 * 60 * 1000;
 const ACTIVE_WINDOW_DAYS = ACTIVE_WINDOW_HOURS / 24;   /* 3h = 0.125 天 */
 
-/* 最后上报时间落在活跃窗口内（report_time 可解析且距今 < 3 小时） */
-function reportedWithinWindow(v){
+const RECENT_WINDOW_HOURS = 24;
+
+/* 最后上报时间距今是否在 hours 小时内（report_time 必须可解析） */
+function reportedWithin(v,hours){
   const d=parseDate(v);
-  return !!d && (Date.now()-d.getTime()) < ACTIVE_WINDOW_MS;
+  if(!d)return false;
+  const window=Number(hours)>0?Number(hours)*60*60*1000:ACTIVE_WINDOW_MS;
+  return (Date.now()-d.getTime()) < window;
+}
+
+/* 落在活跃窗口内（默认 3 小时） */
+function reportedWithinWindow(v){
+  return reportedWithin(v,ACTIVE_WINDOW_HOURS);
+}
+
+/* 落在 24 小时窗口内（含 3h 内的设备，是 3h 口径的超集） */
+function reportedWithinDay(v){
+  return reportedWithin(v,RECENT_WINDOW_HOURS);
 }
 
 /* ---------- 右上角状态位 ----------

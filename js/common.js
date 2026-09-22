@@ -148,6 +148,16 @@ function ageDays(v){
   return d?(Date.now()-d.getTime())/86400000:null;
 }
 
+/* ---------- 自动化上报识别 ----------
+   Agent 支持自动上报后版本号会带 auto 标记（实测线上形如 1.3.2-auto）。
+   只要 script_version 包含 auto（大小写不敏感）就算自动化上报；
+   注意 1.3.2-cleaner / 1.3.2-test 这类不含 auto，不算。 */
+const AUTO_REPORT_TAG = "auto";
+
+function isAutoReport(v){
+  return safe(v).toLowerCase().includes(AUTO_REPORT_TAG);
+}
+
 /* 设备形态：笔记本 / 台式机 / 其他。看板与明细表共用，保证口径一致。 */
 function formFactor(v){
   const m=safe(v).toLowerCase();

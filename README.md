@@ -46,9 +46,16 @@
 
 命中筛选时明细表工具栏会出现蓝色胶囊标签（如「筛选：未绑定 Outlook 邮箱」），点 `×` 即可清除，URL 参数同步移除。结构化筛选与关键字搜索是 **AND** 关系，可叠加使用。
 
-> 「活跃」窗口统一为 **3 小时**，定义在 `js/common.js` 的 `ACTIVE_WINDOW_HOURS`。统计卡「3h 内上报」、看板同名 KPI、活跃度首档、以及 `filter=activity:3h` 全部读这一个常量，改一处即可全局生效。
+> 「活跃」窗口统一为 **3 小时**，定义在 `js/common.js` 的 `ACTIVE_WINDOW_HOURS`。看板「3h 内上报」KPI、活跃度首档、以及 `filter=activity:3h` 全部读这一个常量，改一处即可全局生效。
 >
-> 明细表统计卡另有 **24 小时**窗口，定义在 `RECENT_WINDOW_HOURS`，由 `reportedWithinDay()` 计算，是 3h 口径的**超集**（含 3h 内设备）。两个窗口互相独立，改一个不会影响另一个。
+> 明细表统计卡另有 **24 小时**窗口，定义在 `RECENT_WINDOW_HOURS`，由 `reportedWithinDay()` 计算。
+
+### 自动化上报口径
+
+明细表「自动化上报」统计卡不看上报时间，直接判断**脚本版本**：
+`script_version` 包含 `auto`（大小写不敏感）即计入，判定函数在 `js/common.js` 的 `isAutoReport()`，匹配标记是常量 `AUTO_REPORT_TAG`。
+
+线上实际版本形如 `1.3.2-auto`。注意 `1.3.2-cleaner`、`1.3.2-test`、`1.2.0` 这类**不含** auto 的版本不计入 —— 这个口径反映的是「客户端是否已升级到自动上报版本」，与时间窗口无关。
 
 ## 数据接口
 

@@ -27,6 +27,8 @@ const state = {
   stdSnColName: "",                    /* 标准表是否有专门的硬件序列号列（没有就纯按计算机名比） */
   matchBy: { cn: 0, sn: 0, none: 0 },  /* 命中方式统计：计算机名 / 硬件序列号 / 没匹配上 */
   source: "", disagree: 0, crossChecked: 0,
+  prevFail: null,                      /* 上一次比对时「未装」的计算机名；用于推送后刷新时算差值 */
+  delta: null,                         /* { fixed:[], remain, remainNow } */
   results: [],
   tab: "now", q: "",                  /* 默认停在「可立即推送」 */
   sortKey: "cn", sortAsc: true
@@ -313,14 +315,21 @@ function tryFinalize() {
     hideMsg();
     compare();
 
-    /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未装 auto」避免空白 */
     const c = counts();
-    if (state.tab === "now" && c.now === 0) state.tab = "fail";
+    if (state.delta) {
+      /* 推送后的刷新：焦点放在「还剩哪些」，并报告这一次新装上了几台 */
+      state.tab = c.now > 0 ? "now" : "fail";
+      showDelta();
+    } else {
+      /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未装 auto」避免空白 */
+      if (state.tab === "now" && c.now === 0) state.tab = "fail";
+    }
 
     $("guideBox").hidden = true;
     $("statGrid").hidden = false;
     $("resultPanel").hidden = false;
     render();
+    snapshotFail();                  /* 记下这一轮的「未装」名单，供下次刷新比对 */
     dumpDebug("ok");
   } catch (e) {
     console.error(e);
@@ -329,11 +338,45 @@ function tryFinalize() {
   }
 }
 
+/* 记下本轮没装的机器，下次刷新时用它算「这次修好了几台」 */
+function snapshotFail() {
+  state.prevFail = new Set(
+    state.results.filter(r => r.verdict !== "ok").map(r => r.cn.toUpperCase())
+  );
+}
+
+/* 刷新后的一句话结果：新装上了谁、还剩多少 */
+function showDelta() {
+  const d = state.delta;
+  if (!d) return;
+  const fixedText = d.fixed.length
+    ? `本次已转达标 ${d.fixed.length} 台：<b>${escapeHtml(d.fixed.join("、"))}</b>。`
+    : "这次没有新装上的设备（可能还没上报，稍等几分钟再刷新）。";
+  showMsg(
+    `已重新读取资产数据 —— ${fixedText}还剩 <b>${d.remain}</b> 台未装 auto` +
+    `（其中在线 <b>${d.remainNow}</b> 台，现在就能继续推）。`,
+    d.fixed.length ? "ok" : "info"
+  );
+}
+
+/* 推送完回来点这个：重新读接口 + 重新筛选，直接看还剩哪些 */
+async function refreshAndRecheck() {
+  const btn = $("recheckBtn");
+  const label = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "刷新中…"; }
+  try {
+    await loadApi();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+}
+
 /* 完全清空：回到「刚打开」状态 */
 function resetAll(){
   state.loaded = { std: null, ac: null };
   state.stdRows = []; state.acRows = []; state.acCsvRows = []; state.results = []; state.extra = 0;
   state.stdSkipped = 0; state.stdSnColName = ""; state.matchBy = { cn: 0, sn: 0, none: 0 }; state.disagree = 0; state.crossChecked = 0;
+  state.prevFail = null; state.delta = null;
   state.tab = "now"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
   const search = $("searchInput"); if (search) search.value = "";
   ["std","ac"].forEach(slot => {
@@ -428,6 +471,21 @@ function compare() {
   state.disagree = disagree;
   state.crossChecked = crossChecked;
   state.matchBy = matchBy;
+
+  /* 推送后刷新：和上一轮「未装」名单比一比，看这次新装上了哪些、还剩哪些 */
+  if (state.prevFail) {
+    state.results.forEach(r => {
+      r.justFixed = state.prevFail.has(r.cn.toUpperCase()) && r.verdict === "ok";
+    });
+    const remain = state.results.filter(r => r.verdict !== "ok");
+    state.delta = {
+      fixed: state.results.filter(r => r.justFixed).map(r => r.cn),
+      remain: remain.length,
+      remainNow: remain.filter(r => r.suggestion === "now").length
+    };
+  } else {
+    state.delta = null;
+  }
 
   /* 只在资产表出现、标准表没有的设备 —— 不纳入比对，仅提示 */
   const stdKeys = new Set(state.stdRows.map(s => s.cn.toUpperCase()));
@@ -547,7 +605,7 @@ function renderTable() {
       <td>${escapeHtml(r.os || "—")}</td>
       <td>${escapeHtml(r.last || "—")}</td>
       <td class="script-cell ${scriptCls}">${scriptText}</td>
-      <td><span class="verdict ${v.cls}">${v.text}</span></td>
+      <td><span class="verdict ${v.cls}">${v.text}</span>${r.justFixed ? ' <span class="fixed-flag">本次已修复</span>' : ""}</td>
       <td><span class="suggest ${sg.cls}">${sg.text}</span></td>
     </tr>`;
   }).join("");
@@ -633,5 +691,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetBtn = $("resetBtn");
   if (resetBtn) resetBtn.addEventListener("click", resetAll);
   const apiBtn = $("apiRefreshBtn");
-  if (apiBtn) apiBtn.addEventListener("click", loadApi);
+  if (apiBtn) apiBtn.addEventListener("click", () => refreshAndRecheck());
+  const recheckBtn = $("recheckBtn");
+  if (recheckBtn) recheckBtn.addEventListener("click", () => refreshAndRecheck());
 });

@@ -7,8 +7,8 @@
   <title>脚本覆盖对比 · 自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=9">
-  <link rel="stylesheet" href="css/compare.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/compare.css?v=10">
 </head>
 <body>
   <div class="app-shell">
@@ -83,6 +83,8 @@
           <li>判定：脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）才算达标；
               <code>1.1.0</code> / <code>1.3.2-test</code> 这类都算未装。</li>
           <li>如果向日葵导出自带「自动化脚本已配置」列，会以它为准，并顺带核对接口数据。</li>
+          <li><b>推送完回来点「刷新并重新筛选」</b>：重新读一次接口，直接告诉你这次<b>新装上了哪几台</b>、
+              <b>还剩多少台</b>（其中在线几台可以继续推）。已转达标的机器会挂「本次已修复」角标。</li>
         </ol>
       </div>
     </section>
@@ -129,6 +131,7 @@
           <input id="searchInput" type="search" placeholder="计算机名 / 设备名称 / 分组 / 脚本版本" autocomplete="off">
         </div>
         <div class="compare-actions">
+          <button id="recheckBtn" class="btn btn-primary" type="button" title="重新读取资产数据，筛出还没装 auto 的设备">刷新并重新筛选</button>
           <button id="copyBtn" class="btn" type="button" title="复制当前列表中的计算机名（每行一个）">复制计算机名</button>
           <button id="exportBtn" class="btn" type="button">导出 CSV</button>
         </div>
@@ -162,7 +165,7 @@
     <p class="page-watermark">Compare the full device roster against reported inventory to find missing auto agents.</p>
   </div>
 
-  <script src="js/common.js?v=9"></script>
-  <script src="js/compare.js?v=9"></script>
+  <script src="js/common.js?v=10"></script>
+  <script src="js/compare.js?v=10"></script>
 </body>
 </html>

@@ -92,3 +92,8 @@ html[data-theme="dark"] .stat-card-accent strong{color:#93c5fd}
 /* 靠序列号匹配上的角标 */
 .dup-flag.sn-hit{background:rgba(37,99,235,.14);color:var(--accent)}
 html[data-theme="dark"] .dup-flag.sn-hit{background:rgba(96,165,250,.2);color:#93c5fd}
+
+/* 推送后刷新：本次新装上的设备 */
+.fixed-flag{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(22,163,74,.14);color:var(--good);vertical-align:middle}
+html[data-theme="dark"] .fixed-flag{background:rgba(74,222,128,.18);color:#4ade80}
+.alert-box.ok{background:rgba(22,163,74,.09);border:1px solid rgba(22,163,74,.3);color:var(--good)}

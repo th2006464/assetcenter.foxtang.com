@@ -7,8 +7,8 @@
   <title>脚本覆盖对比 · 自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/compare.css">
+  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/compare.css?v=7">
 </head>
 <body>
   <div class="app-shell">
@@ -34,10 +34,10 @@
 
     <section class="upload-grid">
       <label class="dropzone" id="dzStd" for="fileStd">
-        <div class="dz-title">① 标准设备表（全量清单）</div>
+        <div class="dz-title">① 向日葵标准设备表（需上传）</div>
         <div class="dz-hint">
-          向日葵导出的设备列表，需含「计算机名」列<br>
-          已兼容表头前有「须知」说明行的文件
+          向日葵导出的设备列表，需含「计算机名」「状态」列<br>
+          已兼容表头前有「须知」说明行的旧版导出
         </div>
         <input id="fileStd" type="file" accept=".csv,text/csv" hidden>
         <div class="dz-file" id="nameStd"></div>
@@ -45,34 +45,44 @@
         <span class="dz-cnt" id="cntStd" hidden></span>
       </label>
 
-      <label class="dropzone" id="dzAc" for="fileAc">
-        <div class="dz-title">② 资产上报导出（可选）</div>
+      <div class="api-card" id="apiCard">
+        <div class="dz-title">② 资产上报数据（自动读取）</div>
         <div class="dz-hint">
-          本站在设备明细页导出的 <code>asset-center</code> CSV<br>
-          需含 <code>ComputerName</code> / <code>ScriptVersion</code> 列<br>
-          <b>标准表自带「自动化脚本已配置」列时可不传</b>
+          页面直接从接口 <code>ams.foxtang.com/devices</code> 读取，<b>无需上传</b><br>
+          按计算机名匹配脚本版本判定是否装了 auto
         </div>
-        <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
-        <div class="dz-file" id="nameAc"></div>
-        <span class="dz-tag" id="tagAc" hidden></span>
-        <span class="dz-cnt" id="cntAc" hidden></span>
-      </label>
+        <div class="api-status" id="apiStatus"><span class="api-dot"></span><span id="apiStatusText">准备读取…</span></div>
+        <div class="api-actions">
+          <button id="apiRefreshBtn" class="btn" type="button">刷新数据</button>
+        </div>
+        <div class="fallback" id="fallbackWrap" hidden>
+          <label class="fallback-dz" id="dzAc" for="fileAc">
+            接口读取失败时，可手动上传资产上报 CSV
+            <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
+            <div class="dz-file" id="nameAc"></div>
+            <span class="dz-tag" id="tagAc" hidden></span>
+            <span class="dz-cnt" id="cntAc" hidden></span>
+          </label>
+        </div>
+      </div>
     </section>
 
     <section class="panel" id="msgBox" hidden><div class="alert-box" id="msgText"></div></section>
 
     <section class="panel" id="guideBox">
       <div class="guide">
-        <b>用途</b>：找出<b>还没装上自动上报脚本（auto）的设备</b>，并按「在线 / 离线」拆成两份清单 ——
-        在线的现在就能推，离线的等它们上线再推。
+        <b>用途</b>：上传一份向日葵导出的标准设备表，页面自动从接口读取资产上报数据比对，
+        <b>直接定位「在线但还没装 auto 脚本」的设备</b> —— 这批现在就能推送。
         <ol>
-          <li>左侧上传<b>向日葵导出的标准设备表</b>（必须）。放错位置没关系，页面会按表头自动识别归位。</li>
-          <li>新版向日葵导出自带<b>「自动化脚本已配置」列</b>，页面<b>以它为准</b>判定，此时右侧资产表可不传。</li>
-          <li>老版本导出没有这列时，才需要在右侧上传资产上报导出 CSV，按计算机名匹配 <code>ScriptVersion</code>。</li>
-          <li>两份都有时会交叉核对，<b>不一致以向日葵为准</b>，并在底部标出不一致台数。</li>
-          <li>判定口径：脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）才算达标；
-              <code>#N/A</code> 视为<b>未配置</b>，同样需要推送。</li>
-          <li>处理建议：<b>可立即推送</b> = 在线且未装；<b>待上线推送</b> = 离线且未装（现在推不了，先记下来）。</li>
+          <li>左侧上传<b>向日葵标准设备表</b> —— 标准版导出共 20 列（表头前有「须知」说明行也能自动识别），
+              关键是「计算机名」「状态」两列。</li>
+          <li>右侧资产数据<b>页面自动读取接口</b>，不用传第二个文件；读取失败时才需要手动上传 CSV。</li>
+          <li>默认停在「<b>可立即推送</b>」页签：<b>在线 + 未装 auto</b>，就是你当下能动手的那一批。</li>
+          <li>匹配顺序：先按<b>计算机名</b>；对不上时自动改用<b>硬件序列号</b>
+              （标准导出里序列号通常写在「备注」列）兜底，仍对不上 → 判为<b>从未上报</b>，同样要处理。</li>
+          <li>判定：脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）才算达标；
+              <code>1.1.0</code> / <code>1.3.2-test</code> 这类都算未装。</li>
+          <li>如果向日葵导出自带「自动化脚本已配置」列，会以它为准，并顺带核对接口数据。</li>
         </ol>
       </div>
     </section>
@@ -93,7 +103,7 @@
         <strong id="stFail">0</strong>
         <span class="stat-note" id="stFailNote">需要推送</span>
       </article>
-      <article class="stat-card">
+      <article class="stat-card stat-card-accent">
         <span class="stat-label">可立即推送</span>
         <strong id="stNow">0</strong>
         <span class="stat-note" id="stNowNote">在线，现在就能推</span>
@@ -108,8 +118,8 @@
     <section class="panel" id="resultPanel" hidden>
       <div class="toolbar">
         <div class="tabs" id="tabs">
-          <button class="tab active" data-tab="fail" type="button">未装 auto<span class="n" id="nFail"></span></button>
-          <button class="tab" data-tab="now" type="button">可立即推送<span class="n" id="nNow"></span></button>
+          <button class="tab active" data-tab="now" type="button">可立即推送<span class="n" id="nNow"></span></button>
+          <button class="tab" data-tab="fail" type="button">未装 auto<span class="n" id="nFail"></span></button>
           <button class="tab" data-tab="later" type="button">待上线推送<span class="n" id="nLater"></span></button>
           <button class="tab" data-tab="ok" type="button">已达标<span class="n" id="nOk"></span></button>
           <button class="tab" data-tab="all" type="button">全部<span class="n" id="nAll"></span></button>
@@ -152,7 +162,7 @@
     <p class="page-watermark">Compare the full device roster against reported inventory to find missing auto agents.</p>
   </div>
 
-  <script src="js/common.js"></script>
-  <script src="js/compare.js"></script>
+  <script src="js/common.js?v=7"></script>
+  <script src="js/compare.js?v=7"></script>
 </body>
 </html>

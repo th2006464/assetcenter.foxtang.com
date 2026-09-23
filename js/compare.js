@@ -18,12 +18,16 @@ const SUGGEST = {
 const SUGGEST_RANK = { now: 0, later: 1, ok: 2 };
 
 const state = {
-  loaded: { std: null, ac: null },   /* {name, rows, kind} */
-  stdRows: [], acRows: [],
+  loaded: { std: null, ac: null },   /* {name, rows, kind}；ac 仅接口失败时的手动兜底 */
+  stdRows: [], acRows: [], acCsvRows: [],
+  apiRows: [],                        /* 直接从接口读到的资产数据 */
+  apiOk: false, apiError: "",
   stdHasAutoCol: false, stdAutoColName: "",
+  stdSkipped: 0,                       /* 标准表里「计算机名」为空 / "-" 被跳过的行数 */
+  matchBy: { cn: 0, sn: 0, none: 0 },  /* 命中方式统计：计算机名 / 硬件序列号 / 没匹配上 */
   source: "", disagree: 0, crossChecked: 0,
   results: [],
-  tab: "fail", q: "",
+  tab: "now", q: "",                  /* 默认停在「可立即推送」 */
   sortKey: "cn", sortAsc: true
 };
 
@@ -93,7 +97,12 @@ function colOf(header, names) {
 }
 function cell(row, i) { return i >= 0 ? safe(row[i]).trim() : ""; }
 
-/* 标准表：表头行可能不在第一行（前面有「须知」说明） */
+/* 标准表：表头行可能不在第一行（前面有「须知」说明）。
+   标准版向日葵导出是 20 列，表头在第 5 行：
+   设备名称,备注,状态,分组,识别码,共享状态,向日葵版本号,部署来源,绑定开机设备,
+   系统版本,MAC地址,内网IP,外网IP,最后在线时间,域名访问,域名地址,葵码,计算机名,处理器,内存
+   —— 注意：标准导出没有「脚本版本」列，也常常没有独立的硬件序列号列，
+   序列号通常被填在「备注」里，所以这里把备注也当作序列号候选。 */
 function parseStd(rows, headerAt) {
   const header = rows[headerAt].map(c => safe(c).trim());
   const iCn = colOf(header, ["计算机名"]);
@@ -102,40 +111,97 @@ function parseStd(rows, headerAt) {
   const iGroup = colOf(header, ["分组"]);
   const iOs = colOf(header, ["系统版本"]);
   const iLast = colOf(header, ["最后在线时间"]);
+  /* 硬件序列号：标准导出里通常写在「备注」，自定义导出可能有专门一列 */
+  const iSn = colOf(header, ["硬件序列号", "序列号", "SN", "备注"]);
   /* 新版向日葵导出自带「自动化脚本已配置」列 —— 这是权威判定源，优先用它 */
   const iAuto = colOf(header, ["自动化脚本已配置", "自动化脚本版本", "脚本版本"]);
   const out = [];
+  let skipped = 0;
   for (let i = headerAt + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every(c => !safe(c).trim())) continue;
     const cn = cell(r, iCn);
-    if (!cn || cn === "-") continue;
+    if (!cn || cn === "-") { skipped++; continue; }
     const autoCfg = iAuto >= 0 ? cell(r, iAuto) : "";
     out.push({
       cn, dev: cell(r, iDev), status: cell(r, iStatus), group: cell(r, iGroup),
-      os: cell(r, iOs), last: cell(r, iLast),
+      os: cell(r, iOs), last: cell(r, iLast), sn: cell(r, iSn),
       /* #N/A / 空 视为「未配置」 */
       autoCfg: (autoCfg && autoCfg.toUpperCase() !== "#N/A") ? autoCfg : ""
     });
   }
-  return { rows: out, hasAutoCol: iAuto >= 0, autoColName: iAuto >= 0 ? header[iAuto] : "" };
+  return { rows: out, skipped, hasAutoCol: iAuto >= 0, autoColName: iAuto >= 0 ? header[iAuto] : "", snColName: iSn >= 0 ? header[iSn] : "" };
 }
 
+/* 资产上报 CSV（手动兜底时用）。列名是导出时的 CamelCase。 */
 function parseAc(rows, headerAt) {
   const header = rows[headerAt].map(c => safe(c).trim());
   const iCn = colOf(header, ["ComputerName"]);
   const iSv = colOf(header, ["ScriptVersion"]);
   const iOs = colOf(header, ["OSName"]);
   const iRt = colOf(header, ["ReportTime"]);
+  const iSn = colOf(header, ["SerialNumber", "硬件序列号", "序列号", "SN"]);
   const out = [];
   for (let i = headerAt + 1; i < rows.length; i++) {
     const r = rows[i];
     if (!r || r.every(c => !safe(c).trim())) continue;
     const cn = cell(r, iCn);
     if (!cn) continue;
-    out.push({ cn, script: cell(r, iSv), os: cell(r, iOs), report: cell(r, iRt) });
+    out.push({ cn, sn: cell(r, iSn), script: cell(r, iSv), os: cell(r, iOs), report: cell(r, iRt) });
   }
   return out;
+}
+
+/* ---------- 直接从接口读取资产数据 ----------
+   注意：接口返回的是 snake_case（computer_name / script_version），
+   而页面导出的 CSV 表头是 CamelCase（ComputerName / ScriptVersion）—— 两套字段名别混用。 */
+function parseApi(list) {
+  const out = [];
+  (list || []).forEach(d => {
+    const cn = safe(d && d.computer_name).trim();
+    if (!cn) return;
+    out.push({
+      cn,
+      sn: safe(d.serial_number).trim(),
+      script: safe(d.script_version).trim(),
+      os: safe(d.os_name).trim(),
+      report: safe(d.report_time).trim()
+    });
+  });
+  return out;
+}
+
+function setApiStatus(text, cls) {
+  const dot = document.querySelector("#apiStatus .api-dot");
+  const el = $("apiStatusText");
+  if (el) el.textContent = text;
+  if (dot) dot.className = "api-dot" + (cls ? " " + cls : "");
+}
+
+async function loadApi() {
+  setApiStatus("正在读取…", "");
+  try {
+    const res = await fetch(API_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("接口返回格式不是数组");
+    state.apiRows = parseApi(data);
+    state.apiOk = true;
+    state.apiError = "";
+    setApiStatus(`已读取 ${state.apiRows.length} 台设备`, "ok");
+    const fw = $("fallbackWrap");
+    if (fw) fw.hidden = true;
+    tryFinalize();               /* 标准表可能已经上传了，读完接口立刻补一次比对 */
+  } catch (e) {
+    console.error(e);
+    state.apiRows = [];
+    state.apiOk = false;
+    state.apiError = safe(e && e.message || String(e));
+    setApiStatus("读取失败：" + state.apiError, "err");
+    const fw = $("fallbackWrap");
+    if (fw) fw.hidden = false;   /* 放开手动上传兜底 */
+    showMsg("资产接口读取失败：<b>" + escapeHtml(state.apiError) + "</b>。可在右侧手动上传资产上报 CSV 继续。", "err");
+  }
 }
 
 /* ---------- 提示 / 标签 ---------- */
@@ -188,39 +254,41 @@ async function handleFile(file, slot) {
     state.loaded[slot] = null;
     return;
   }
+
+  /* 槽位现在职责明确：① 只能是向日葵标准表，② 只能是资产数据。放错直接提示。 */
+  if (slot === "std" && det.kind !== "std") {
+    setSlot(slot, file.name, "这是资产上报导出", true);
+    showMsg(`这个文件识别为<b>资产上报导出</b>，请改放向日葵标准设备表（含「计算机名」「状态」列）；资产数据页面会自动从接口读取。`, "err");
+    state.loaded.std = null;
+    return;
+  }
+  if (slot === "ac" && det.kind !== "ac") {
+    setSlot(slot, file.name, "这不是资产导出", true);
+    showMsg(`这个文件识别为<b>向日葵标准设备表</b>，资产数据请放右侧的手动上传区（且只在接口失败时才需要）。`, "err");
+    state.loaded.ac = null;
+    return;
+  }
+
   state.loaded[slot] = { name: file.name, rows, kind: det.kind };
-  setSlot(slot, file.name, det.kind === "std" ? "标准设备表" : "资产上报导出", false);
+  setSlot(slot, file.name, det.kind === "std" ? "向日葵标准设备表" : "资产上报导出", false);
+
+  if (slot === "ac") {
+    state.acCsvRows = parseAc(rows, det.headerAt);
+    setSlotCount("ac", state.acCsvRows.length);
+  }
   tryFinalize();
 }
 
 function tryFinalize() {
-  /* 按识别结果取，不按槽位 —— 放反了也能跑 */
-  const files = [state.loaded.std, state.loaded.ac].filter(Boolean);
-  if (!files.length) { dumpDebug("no file"); return; }
-
-  const stdSrc = files.find(f => f.kind === "std");
-  const acSrc = files.find(f => f.kind === "ac");
-
-  if (!stdSrc) {
-    if (files.length === 2) {
-      showMsg("两份文件都识别为「资产上报导出」，缺少<b>标准设备表</b>（向日葵导出）。", "err");
-      dumpDebug("no std");
-    }
-    return;
-  }
+  const stdSrc = state.loaded.std;
+  if (!stdSrc) { dumpDebug("no std yet"); return; }
 
   try {
-    /* 归位显示（只在真的放反时提示） */
-    const stdSlotHoldsStd = state.loaded.std && state.loaded.std.kind === "std";
-    if (!stdSlotHoldsStd) {
-      setSlot("std", stdSrc.name, "标准设备表（已自动归位）", false);
-      if (acSrc) setSlot("ac", acSrc.name, "资产上报导出（已自动归位）", false);
-    }
-
     const stdParsed = parseStd(stdSrc.rows, detectKind(stdSrc.rows).headerAt);
     state.stdRows = stdParsed.rows;
     state.stdHasAutoCol = stdParsed.hasAutoCol;
     state.stdAutoColName = stdParsed.autoColName;
+    state.stdSkipped = stdParsed.skipped;
     setSlotCount("std", state.stdRows.length);
 
     if (!state.stdRows.length) {
@@ -228,27 +296,23 @@ function tryFinalize() {
       dumpDebug("std empty"); return;
     }
 
-    /* 标准表自带「自动化脚本已配置」列时，它是权威源，不强制要资产表；
-       老版本导出没有这列，才需要用资产上报 CSV 比对。 */
-    if (!state.stdHasAutoCol && !acSrc) {
-      showMsg("这份标准表<b>没有</b>「自动化脚本已配置」列，请在右侧再上传一份资产上报导出 CSV 用于比对。", "info");
-      dumpDebug("need ac"); return;
-    }
+    /* 资产数据来源：优先接口自动读取，接口失败时用手动上传的 CSV 兜底 */
+    state.acRows = state.apiOk ? state.apiRows : (state.acCsvRows || []);
 
-    if (acSrc) {
-      state.acRows = parseAc(acSrc.rows, detectKind(acSrc.rows).headerAt);
-      setSlotCount("ac", state.acRows.length);
-      if (!state.acRows.length) {
-        showMsg("资产表解析到的有效行为 0，请确认文件含 ComputerName / ScriptVersion 列且内容完整。", "err");
-        dumpDebug("ac empty"); return;
-      }
-    } else {
-      state.acRows = [];
-      setSlotCount("ac", 0);
+    /* 标准表自带「自动化脚本已配置」列时它是权威源，不需要资产数据；
+       标准版导出没有这列，必须靠资产数据判定。 */
+    if (!state.stdHasAutoCol && !state.acRows.length) {
+      showMsg("资产数据还没就绪：接口尚未读取成功。请稍候，或在右侧手动上传资产上报 CSV。", "info");
+      dumpDebug("need ac data"); return;
     }
 
     hideMsg();
     compare();
+
+    /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未装 auto」避免空白 */
+    const c = counts();
+    if (state.tab === "now" && c.now === 0) state.tab = "fail";
+
     $("guideBox").hidden = true;
     $("statGrid").hidden = false;
     $("resultPanel").hidden = false;
@@ -264,8 +328,10 @@ function tryFinalize() {
 /* 完全清空：回到「刚打开」状态 */
 function resetAll(){
   state.loaded = { std: null, ac: null };
-  state.stdRows = []; state.acRows = []; state.results = []; state.extra = 0;
-  state.tab = "fail"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
+  state.stdRows = []; state.acRows = []; state.acCsvRows = []; state.results = []; state.extra = 0;
+  state.stdSkipped = 0; state.matchBy = { cn: 0, sn: 0, none: 0 }; state.disagree = 0; state.crossChecked = 0;
+  state.tab = "now"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
+  const search = $("searchInput"); if (search) search.value = "";
   ["std","ac"].forEach(slot => {
     setSlot(slot, "", "", false);
     setSlotCount(slot, 0);
@@ -284,16 +350,24 @@ function compare() {
   /* 资产表按计算机名建索引（不区分大小写）。
      同一计算机名可能有多条记录 —— 实测存在「两台不同序列号机器用了同一个计算机名」的情况，
      此时按**最近一次上报**取，不能按文件先后顺序取（那纯属偶然）。 */
-  const map = new Map();
+  const map = new Map();          /* 按计算机名索引 */
+  const mapSn = new Map();        /* 按硬件序列号索引 —— 计算机名对不上时的兜底 */
   const all = new Map();          /* 同名记录的全部脚本版本，用于提示重名 */
+  const newer = (a, b) =>
+    ((a ? a.getTime() : -Infinity) > (b ? b.getTime() : -Infinity));
   state.acRows.forEach(d => {
     const k = d.cn.toUpperCase();
     if (!all.has(k)) all.set(k, []);
     all.get(k).push(d.script || "—");
+
     const prev = map.get(k);
-    if (!prev) { map.set(k, d); return; }
-    const t = parseDate(d.report), pt = parseDate(prev.report);
-    if ((t ? t.getTime() : -Infinity) > (pt ? pt.getTime() : -Infinity)) map.set(k, d);
+    if (!prev || newer(parseDate(d.report), parseDate(prev.report))) map.set(k, d);
+
+    const sk = safe(d.sn).trim().toUpperCase();
+    if (sk) {
+      const p2 = mapSn.get(sk);
+      if (!p2 || newer(parseDate(d.report), parseDate(p2.report))) mapSn.set(sk, d);
+    }
   });
 
   /* 判定源：标准表自带「自动化脚本已配置」列时以它为准（向日葵是权威源），
@@ -301,12 +375,21 @@ function compare() {
   const useStdCol = state.stdHasAutoCol;
   state.source = useStdCol
     ? `向日葵导出「${state.stdAutoColName}」列`
-    : "资产上报 ScriptVersion（按计算机名匹配）";
+    : (state.apiOk ? `资产接口 ${API_URL} 的 script_version` : "手动上传的资产上报 CSV ScriptVersion");
 
   let disagree = 0, crossChecked = 0;
+  const matchBy = { cn: 0, sn: 0, none: 0 };
   state.results = state.stdRows.map(s => {
     const k = s.cn.toUpperCase();
-    const hit = map.get(k);
+    /* 先按计算机名对；对不上再用硬件序列号兜底（向日葵的计算机名偶尔和资产系统不一致） */
+    let hit = map.get(k) || null;
+    let via = hit ? "cn" : "none";
+    if (!hit && s.sn) {
+      const h2 = mapSn.get(s.sn.trim().toUpperCase());
+      if (h2) { hit = h2; via = "sn"; }
+    }
+    matchBy[via]++;
+
     const versions = all.get(k) || [];
     const uniqueV = Array.from(new Set(versions));
     const dup = versions.length > 1;
@@ -334,12 +417,13 @@ function compare() {
     const suggestion = verdict === "ok" ? "ok"
       : (online ? "now" : "later");
     return Object.assign({}, s, {
-      script, verdict, dup, versions: uniqueV, online, suggestion
+      script, verdict, dup, versions: uniqueV, online, suggestion, via
     });
   });
 
   state.disagree = disagree;
   state.crossChecked = crossChecked;
+  state.matchBy = matchBy;
 
   /* 只在资产表出现、标准表没有的设备 —— 不纳入比对，仅提示 */
   const stdKeys = new Set(state.stdRows.map(s => s.cn.toUpperCase()));
@@ -417,10 +501,13 @@ function renderTable() {
 
   /* 底部说明：判定依据 + 交叉核对结果 + 资产表多出来的设备 */
   const notes = [`判定依据：${escapeHtml(state.source)}`];
+  const m = state.matchBy;
+  notes.push(`匹配：按计算机名 ${m.cn} 台 · 按序列号 ${m.sn} 台 · 未匹配 ${m.none} 台`);
   if (state.disagree > 0) {
     notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），已以向日葵为准`);
   }
-  if (state.extra) notes.push(`另有 ${state.extra} 台只在资产表中、不在标准表内，未纳入比对`);
+  if (state.stdSkipped) notes.push(`标准表有 ${state.stdSkipped} 行没有计算机名，已跳过`);
+  if (state.extra) notes.push(`另有 ${state.extra} 台只在资产数据中、不在标准表内，未纳入比对`);
   $("extraNote").innerHTML = notes.join(" · ");
 
   if (!rows.length) {
@@ -438,8 +525,12 @@ function renderTable() {
     const dupFlag = r.dup
       ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
       : "";
+    /* 计算机名没对上、靠硬件序列号匹配到的，标一下，方便核对 */
+    const viaFlag = r.via === "sn"
+      ? ` <span class="dup-flag sn-hit" title="计算机名在资产数据里查不到，已改用硬件序列号 ${escapeHtml(r.sn)} 匹配">按序列号</span>`
+      : "";
     return `<tr>
-      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}</td>
+      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}${viaFlag}</td>
       <td>${escapeHtml(r.dev || "—")}</td>
       <td><span class="status-pill ${stCls}">${escapeHtml(r.status || "—")}</span></td>
       <td>${escapeHtml(r.group || "—")}</td>
@@ -464,10 +555,10 @@ function render() {
 /* ---------- 导出 / 复制 ---------- */
 function exportCsv() {
   const rows = visibleRows();
-  const head = ["计算机名", "设备名称", "状态", "分组", "系统版本", "最后在线时间", "脚本版本", "判定"];
+  const head = ["计算机名", "设备名称", "状态", "分组", "系统版本", "最后在线时间", "脚本版本", "判定", "处理建议"];
   const esc = v => `"${safe(v).replaceAll('"', '""')}"`;
   const csv = [head.map(esc).join(",")]
-    .concat(rows.map(r => [r.cn, r.dev, r.status, r.group, r.os, r.last, r.script, VERDICT[r.verdict].text].map(esc).join(",")))
+    .concat(rows.map(r => [r.cn, r.dev, r.status, r.group, r.os, r.last, r.script, VERDICT[r.verdict].text, SUGGEST[r.suggestion].text].map(esc).join(",")))
     .join("\r\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob), a = document.createElement("a");
@@ -498,6 +589,7 @@ async function copyNames() {
 /* ---------- 事件绑定 ---------- */
 document.addEventListener("DOMContentLoaded", () => {
   initTheme();
+  loadApi();                       /* 进页面就自动读接口，不等用户上传 */
 
   ["std", "ac"].forEach(slot => {
     const input = $("file" + (slot === "std" ? "Std" : "Ac"));
@@ -530,4 +622,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("copyBtn").addEventListener("click", copyNames);
   const resetBtn = $("resetBtn");
   if (resetBtn) resetBtn.addEventListener("click", resetAll);
+  const apiBtn = $("apiRefreshBtn");
+  if (apiBtn) apiBtn.addEventListener("click", loadApi);
 });

@@ -24,6 +24,7 @@ const state = {
   apiOk: false, apiError: "",
   stdHasAutoCol: false, stdAutoColName: "",
   stdSkipped: 0,                       /* 标准表里「计算机名」为空 / "-" 被跳过的行数 */
+  stdSnColName: "",                    /* 标准表是否有专门的硬件序列号列（没有就纯按计算机名比） */
   matchBy: { cn: 0, sn: 0, none: 0 },  /* 命中方式统计：计算机名 / 硬件序列号 / 没匹配上 */
   source: "", disagree: 0, crossChecked: 0,
   results: [],
@@ -111,8 +112,10 @@ function parseStd(rows, headerAt) {
   const iGroup = colOf(header, ["分组"]);
   const iOs = colOf(header, ["系统版本"]);
   const iLast = colOf(header, ["最后在线时间"]);
-  /* 硬件序列号：标准导出里通常写在「备注」，自定义导出可能有专门一列 */
-  const iSn = colOf(header, ["硬件序列号", "序列号", "SN", "备注"]);
+  /* 硬件序列号：只认**专门的序列号列**。
+     标准版向日葵导出没有这一列 —— 它的「备注」是自由文本（可能写序列号，也可能写 "-" 或资产编号），
+     不能拿当序列号用，否则会有误匹配。没有序列号列时，就纯按计算机名对比。 */
+  const iSn = colOf(header, ["硬件序列号", "序列号", "SerialNumber", "Serial", "SN"]);
   /* 新版向日葵导出自带「自动化脚本已配置」列 —— 这是权威判定源，优先用它 */
   const iAuto = colOf(header, ["自动化脚本已配置", "自动化脚本版本", "脚本版本"]);
   const out = [];
@@ -289,6 +292,7 @@ function tryFinalize() {
     state.stdHasAutoCol = stdParsed.hasAutoCol;
     state.stdAutoColName = stdParsed.autoColName;
     state.stdSkipped = stdParsed.skipped;
+    state.stdSnColName = stdParsed.snColName;
     setSlotCount("std", state.stdRows.length);
 
     if (!state.stdRows.length) {
@@ -329,7 +333,7 @@ function tryFinalize() {
 function resetAll(){
   state.loaded = { std: null, ac: null };
   state.stdRows = []; state.acRows = []; state.acCsvRows = []; state.results = []; state.extra = 0;
-  state.stdSkipped = 0; state.matchBy = { cn: 0, sn: 0, none: 0 }; state.disagree = 0; state.crossChecked = 0;
+  state.stdSkipped = 0; state.stdSnColName = ""; state.matchBy = { cn: 0, sn: 0, none: 0 }; state.disagree = 0; state.crossChecked = 0;
   state.tab = "now"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
   const search = $("searchInput"); if (search) search.value = "";
   ["std","ac"].forEach(slot => {
@@ -502,7 +506,13 @@ function renderTable() {
   /* 底部说明：判定依据 + 交叉核对结果 + 资产表多出来的设备 */
   const notes = [`判定依据：${escapeHtml(state.source)}`];
   const m = state.matchBy;
-  notes.push(`匹配：按计算机名 ${m.cn} 台 · 按序列号 ${m.sn} 台 · 未匹配 ${m.none} 台`);
+  /* 有专门的序列号列才提「按序列号」；没有的话这行只说计算机名，免得让人以为还有别的匹配手段 */
+  notes.push(state.stdSnColName
+    ? `匹配：按计算机名 ${m.cn} 台 · 按序列号 ${m.sn} 台 · 未匹配 ${m.none} 台`
+    : `匹配：按计算机名 ${m.cn} 台 · 未匹配 ${m.none} 台（导出无序列号列，纯按计算机名对比）`);
+  if (!state.stdSnColName && m.none) {
+    notes.push(`未匹配的 ${m.none} 台：资产数据里查无此计算机名，按「从未上报」处理`);
+  }
   if (state.disagree > 0) {
     notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），已以向日葵为准`);
   }

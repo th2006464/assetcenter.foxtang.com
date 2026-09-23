@@ -7,8 +7,8 @@
   <title>脚本覆盖对比 · 自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=7">
-  <link rel="stylesheet" href="css/compare.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/compare.css?v=8">
 </head>
 <body>
   <div class="app-shell">
@@ -78,8 +78,10 @@
               关键是「计算机名」「状态」两列。</li>
           <li>右侧资产数据<b>页面自动读取接口</b>，不用传第二个文件；读取失败时才需要手动上传 CSV。</li>
           <li>默认停在「<b>可立即推送</b>」页签：<b>在线 + 未装 auto</b>，就是你当下能动手的那一批。</li>
-          <li>匹配顺序：先按<b>计算机名</b>；对不上时自动改用<b>硬件序列号</b>
-              （标准导出里序列号通常写在「备注」列）兜底，仍对不上 → 判为<b>从未上报</b>，同样要处理。</li>
+          <li>匹配口径：<b>按计算机名对比</b>。若导出里<b>有专门的「硬件序列号」列</b>，
+              计算机名对不上时会再用序列号兜底；<b>标准版导出没有序列号列</b>，那就纯按计算机名比
+              —— 注意「备注」是自由文本（可能写序列号，也可能是 `-` 或资产编号），不当序列号用。</li>
+          <li>资产数据里查不到该计算机名 → 判为<b>从未上报</b>，同样要处理。</li>
           <li>判定：脚本版本含 <code>auto</code>（如 <code>1.3.2-auto</code>）才算达标；
               <code>1.1.0</code> / <code>1.3.2-test</code> 这类都算未装。</li>
           <li>如果向日葵导出自带「自动化脚本已配置」列，会以它为准，并顺带核对接口数据。</li>
@@ -162,7 +164,7 @@
     <p class="page-watermark">Compare the full device roster against reported inventory to find missing auto agents.</p>
   </div>
 
-  <script src="js/common.js?v=7"></script>
-  <script src="js/compare.js?v=7"></script>
+  <script src="js/common.js?v=8"></script>
+  <script src="js/compare.js?v=8"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@
   <title>脚本覆盖对比 · 自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=8">
-  <link rel="stylesheet" href="css/compare.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/compare.css?v=9">
 </head>
 <body>
   <div class="app-shell">
@@ -32,12 +32,12 @@
       </div>
     </header>
 
-    <section class="upload-grid">
+    <section class="upload-area">
       <label class="dropzone" id="dzStd" for="fileStd">
-        <div class="dz-title">① 向日葵标准设备表（需上传）</div>
+        <div class="dz-title">上传向日葵标准设备表</div>
         <div class="dz-hint">
           向日葵导出的设备列表，需含「计算机名」「状态」列<br>
-          已兼容表头前有「须知」说明行的旧版导出
+          已兼容表头前有「须知」说明行的标准版导出（20 列）
         </div>
         <input id="fileStd" type="file" accept=".csv,text/csv" hidden>
         <div class="dz-file" id="nameStd"></div>
@@ -45,25 +45,22 @@
         <span class="dz-cnt" id="cntStd" hidden></span>
       </label>
 
-      <div class="api-card" id="apiCard">
-        <div class="dz-title">② 资产上报数据（自动读取）</div>
-        <div class="dz-hint">
-          页面直接从接口 <code>ams.foxtang.com/devices</code> 读取，<b>无需上传</b><br>
-          按计算机名匹配脚本版本判定是否装了 auto
-        </div>
-        <div class="api-status" id="apiStatus"><span class="api-dot"></span><span id="apiStatusText">准备读取…</span></div>
-        <div class="api-actions">
-          <button id="apiRefreshBtn" class="btn" type="button">刷新数据</button>
-        </div>
-        <div class="fallback" id="fallbackWrap" hidden>
-          <label class="fallback-dz" id="dzAc" for="fileAc">
-            接口读取失败时，可手动上传资产上报 CSV
-            <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
-            <div class="dz-file" id="nameAc"></div>
-            <span class="dz-tag" id="tagAc" hidden></span>
-            <span class="dz-cnt" id="cntAc" hidden></span>
-          </label>
-        </div>
+      <!-- 资产数据由页面自动读取，平时只占一行；读取失败时才展开手动上传兜底 -->
+      <div class="api-strip" id="apiStatus">
+        <span class="api-dot"></span>
+        <span class="api-strip-text">资产上报数据（自动读取）</span>
+        <span class="api-strip-val" id="apiStatusText">准备读取…</span>
+        <button id="apiRefreshBtn" class="btn btn-mini" type="button">刷新</button>
+      </div>
+
+      <div class="fallback" id="fallbackWrap" hidden>
+        <label class="fallback-dz" id="dzAc" for="fileAc">
+          接口读取失败时，可手动上传资产上报 CSV
+          <input id="fileAc" type="file" accept=".csv,text/csv" hidden>
+          <div class="dz-file" id="nameAc"></div>
+          <span class="dz-tag" id="tagAc" hidden></span>
+          <span class="dz-cnt" id="cntAc" hidden></span>
+        </label>
       </div>
     </section>
 
@@ -74,9 +71,10 @@
         <b>用途</b>：上传一份向日葵导出的标准设备表，页面自动从接口读取资产上报数据比对，
         <b>直接定位「在线但还没装 auto 脚本」的设备</b> —— 这批现在就能推送。
         <ol>
-          <li>左侧上传<b>向日葵标准设备表</b> —— 标准版导出共 20 列（表头前有「须知」说明行也能自动识别），
+          <li>上传<b>向日葵标准设备表</b> —— 标准版导出共 20 列（表头前有「须知」说明行也能自动识别），
               关键是「计算机名」「状态」两列。</li>
-          <li>右侧资产数据<b>页面自动读取接口</b>，不用传第二个文件；读取失败时才需要手动上传 CSV。</li>
+          <li>资产上报数据<b>不用上传</b>：页面打开时已自动从接口读取（下方状态条显示读取了多少台）；
+              万一接口读不到，才会展开手动上传的入口。</li>
           <li>默认停在「<b>可立即推送</b>」页签：<b>在线 + 未装 auto</b>，就是你当下能动手的那一批。</li>
           <li>匹配口径：<b>按计算机名对比</b>。若导出里<b>有专门的「硬件序列号」列</b>，
               计算机名对不上时会再用序列号兜底；<b>标准版导出没有序列号列</b>，那就纯按计算机名比
@@ -164,7 +162,7 @@
     <p class="page-watermark">Compare the full device roster against reported inventory to find missing auto agents.</p>
   </div>
 
-  <script src="js/common.js?v=8"></script>
-  <script src="js/compare.js?v=8"></script>
+  <script src="js/common.js?v=9"></script>
+  <script src="js/compare.js?v=9"></script>
 </body>
 </html>

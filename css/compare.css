@@ -2,7 +2,7 @@
    基础变量、按钮、面板、统计卡都复用 css/style.css，这里只补充上传区与判定标签。 */
 
 /* ---------- 上传区 ---------- */
-.upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.upload-area{margin-bottom:18px}
 .dropzone{display:block;position:relative;border:2px dashed var(--line);border-radius:var(--radius);background:var(--surface);padding:24px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;box-shadow:var(--shadow)}
 .dropzone:hover,.dropzone.dragging{border-color:var(--accent);background:var(--surface-2)}
 .dropzone.filled{border-style:solid;border-color:var(--good)}
@@ -13,18 +13,14 @@
 .dz-tag{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(37,99,235,.1);color:var(--accent)}
 .dz-tag.warn{background:rgba(217,119,6,.14);color:var(--warn)}
 .dz-cnt{display:block;margin-top:6px;font-size:11px;color:var(--muted);font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
-@media (max-width:900px){.upload-grid{grid-template-columns:1fr}}
-
-/* ---------- 右侧「资产数据自动读取」卡 ---------- */
-.api-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);padding:24px 20px;text-align:center;box-shadow:var(--shadow)}
-.api-card .dz-title{margin-bottom:8px}
-.api-card .dz-hint{color:var(--muted);font-size:12px;line-height:1.7}
-.api-status{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-size:12px;font-weight:700;color:var(--muted)}
+/* ---------- 「资产数据自动读取」状态条：平时只占一行 ---------- */
+.api-strip{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.api-strip-text{font-weight:700}
+.api-strip-val{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
 .api-dot{width:9px;height:9px;border-radius:999px;background:#9ca3af;flex:0 0 auto}
 .api-dot.ok{background:var(--good)}
 .api-dot.err{background:var(--bad)}
-.api-actions{margin-top:12px}
-.api-actions .btn{font-size:12px;padding:7px 14px}
+.btn-mini{font-size:11px;padding:4px 10px;margin-left:auto}
 .fallback{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
 .fallback-dz{display:block;font-size:12px;color:var(--muted);cursor:pointer;line-height:1.6}
 .fallback-dz:hover{color:var(--accent)}

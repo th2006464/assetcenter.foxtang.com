@@ -156,7 +156,7 @@ function render(){
       <td class="mono">${escapeHtml(displayValue(d.serial_number))}</td>
       <td>${escapeHtml(displayValue(d.windows_user))}</td>
       <td class="mono"${vpnFull?` title="${escapeHtml(vpnFull)}"`:""}>${escapeHtml(displayVpnUser(d.forticlient_user))}</td>
-      <td>${vpnTime?`<span class="${vpnAgo.cls}">${escapeHtml(vpnAgo.text)}</span><br><span class="muted">${escapeHtml(displaySourceTime(vpnTime))}</span>`:'<span class="muted">—</span>'}</td>
+      <td>${vpnTime?`${escapeHtml(vpnAgo.text)}<br><span class="muted">${escapeHtml(displaySourceTime(vpnTime))}</span>`:'<span class="muted">—</span>'}</td>
       <td>${escapeHtml(displayValue(d.outlook_account))}</td>
       <td>${safe(d.manufacturer).trim()?`<span class="badge">${escapeHtml(d.manufacturer)}</span>`:'<span class="muted">—</span>'}</td>
       <td>${escapeHtml(displayValue(d.model))}</td>

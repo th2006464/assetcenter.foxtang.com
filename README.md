@@ -30,13 +30,13 @@
 
 ```
 选择 CSV → parseSunlogin()（表头自动定位，含「备注」列）
-        → toImportRecords()（备注 = serial_number，TRIM + UPPERCASE，空 SN 跳过）
+        → toImportRecords()（备注末段 = serial_number，TRIM + UPPERCASE，空 SN 跳过）
         → 确认条数弹窗 → Import Key 弹窗
         → POST https://ams.foxtang.com/import-assets  →  D1 asset_inventory
         → 自动 reload GET /devices，列表立刻反映 Agent ∪ Asset 并集
 ```
 
-- **「备注」是 `serial_number` 的主要来源**：向日葵标准导出没有专门的硬件序列号列，序列号常被填在「备注」里。
+- **「备注」是 `serial_number` 的主要来源**：向日葵标准导出没有专门的硬件序列号列，序列号常被填在「备注」里；如「3101466-5CD5203BVK」，导入时取最后一个连字符后的「5CD5203BVK」为匹配键，完整备注仍保留。
 - **空 SN 不上传**：`asset_inventory.serial_number` 是主键，空值记录直接跳过，并在确认弹窗里显示「缺少 SN：N」。
 - **Import Key 只在内存里**：弹窗输入后存于局部变量，请求结束即释放；**不写** `localStorage` / `sessionStorage` / Cookie / 源码。
 - 重复导入同一份 CSV 是安全的：主键冲突时 Worker 执行 UPSERT（更新而非新增重复行）。
@@ -47,7 +47,7 @@
 
 ### 资产 / Agent 统一展示与纳管状态
 
-`GET /devices` 升级后返回 `devices` 与 `asset_inventory` 按 `serial_number` 匹配后的**并集**，前端据此区分三种纳管状态：
+`GET /devices` 升级后返回 `devices` 与 `asset_inventory` 按 `serial_number` 匹配后的**并集**。前端会兼容旧导入数据：当硬件 SN 对应唯一一条 Agent 行和唯一一条带资产编号前缀的资产行时合并展示；长期应在 Worker / D1 中规范化旧主键。前端据此区分三种纳管状态：
 
 | management_status | 中文 | 含义 |
 | --- | --- | --- |

@@ -232,7 +232,7 @@ function parseSunlogin(text){
 function toImportRecords(rows){
   const records=[],skipped=[];
   (rows||[]).forEach(r=>{
-    const sn=normalizeSn(r.note);
+    const sn=snTail(r.note);
     if(!sn){
       skipped.push(safe(r.dev).trim()||safe(r.cn).trim()||"（空行）");
       return;
@@ -593,7 +593,7 @@ async function loadDevices(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");
-    allDevices=data; updateStats(data); currentPage=1;
+    allDevices=reconcileDevices(data); updateStats(allDevices); currentPage=1;
     /* 统一数据：把 asset_inventory 侧的字段摊平到展示字段上，并算出纳管状态 */
     allDevices.forEach(normalizeAssetFields);
     syncDataDrivenCols();

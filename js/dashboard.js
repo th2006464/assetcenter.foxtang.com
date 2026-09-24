@@ -364,7 +364,7 @@ async function loadDevices(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");
-    devices=data;
+    devices=reconcileDevices(data);
     if(!devices.length){
       renderError("接口返回 0 条设备记录");
     }else{

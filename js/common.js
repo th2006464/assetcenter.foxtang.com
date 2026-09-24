@@ -393,6 +393,40 @@ function snTail(v) {
   return i >= 0 ? s.slice(i + 1) : s;
 }
 
+/* 兼容旧资产导入：旧记录的主键含资产编号前缀，Worker 按完整 SN 连接时会拆成两行。
+   仅在同一硬件 SN 下恰好各有一条纯 Agent / 纯资产记录时合并，避免误合并。 */
+function reconcileDevices(rows){
+  const agents=new Map(),assets=new Map();
+  (rows||[]).forEach((d,i)=>{
+    const sn=snTail(d.serial_number);
+    if(!sn)return;
+    if(asBool(d.has_agent)&&!asBool(d.has_asset)){
+      const list=agents.get(sn)||[];list.push(i);agents.set(sn,list);
+    }else if(asBool(d.has_asset)&&!asBool(d.has_agent)){
+      const list=assets.get(sn)||[];list.push(i);assets.set(sn,list);
+    }
+  });
+  const removed=new Set(),replacement=new Map();
+  agents.forEach((agentIndexes,sn)=>{
+    const assetIndexes=assets.get(sn)||[];
+    if(agentIndexes.length!==1||assetIndexes.length!==1)return;
+    const ai=agentIndexes[0],bi=assetIndexes[0];
+    const agent=rows[ai],asset=rows[bi];
+    const combined={...asset,...agent};
+    Object.keys(asset).forEach(key=>{
+      if((combined[key]===null||combined[key]===undefined||combined[key]==="")&&asset[key]!=null)
+        combined[key]=asset[key];
+    });
+    combined.serial_number=agent.serial_number;
+    combined.has_agent=1;
+    combined.has_asset=1;
+    combined.management_status="managed";
+    replacement.set(ai,combined);
+    removed.add(bi);
+  });
+  return rows.map((d,i)=>replacement.get(i)||d).filter((_,i)=>!removed.has(i));
+}
+
 function currentThemeIsDark(){
   const attr=document.documentElement.dataset.theme;
   if(attr)return attr==="dark";

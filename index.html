@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
   <div class="app-shell">
@@ -90,21 +90,24 @@
         </div>
       </div>
 
-      <div class="colbar">
-        <div class="colbar-head">
-          <span class="colbar-title">隐藏列</span>
-          <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
+      <details class="advanced-filter" id="advancedFilter">
+        <summary>高级筛选</summary>
+        <div class="colbar">
+          <div class="colbar-head">
+            <span class="colbar-title">隐藏列</span>
+            <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
+          </div>
+          <div class="col-toggles" id="colToggles"></div>
+          <div class="colbar-actions">
+            <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
+            <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
+            <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
+            <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
+            <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
+            <span id="sunStatus" class="sun-status" hidden></span>
+          </div>
         </div>
-        <div class="col-toggles" id="colToggles"></div>
-        <div class="colbar-actions">
-          <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
-          <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
-          <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
-          <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
-          <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
-          <span id="sunStatus" class="sun-status" hidden></span>
-        </div>
-      </div>
+      </details>
 
       <div class="table-wrap">
         <table id="deviceTable">

@@ -257,6 +257,39 @@ function updateKpis(){
   setNote("kpiStaleNote",`占比 ${pct(stale,total)}`,stale?"alert":"good");
 }
 
+/* ---------- 资产纳管统计（devices ∪ asset_inventory） ----------
+   依赖 Worker /devices 返回的 has_asset / has_agent / management_status。
+   接口还没升级时整块统计卡隐藏，不会显示一排 0 误导判断。 */
+function updateAssetKpis(){
+  const grid=$("assetKpiGrid");
+  if(!grid)return;
+  if(!hasManagementData(devices)){grid.hidden=true;return}
+  grid.hidden=false;
+
+  const total=devices.length;
+  const asset=devices.filter(d=>asBool(d.has_asset)).length;
+  const agent=devices.filter(d=>asBool(d.has_agent)).length;
+  const managed=devices.filter(d=>managementStatusOf(d)==="managed").length;
+  const agentMissing=devices.filter(d=>managementStatusOf(d)==="agent_missing").length;
+  const assetMissing=devices.filter(d=>managementStatusOf(d)==="asset_missing").length;
+
+  $("kpiAssetTotal").textContent=asset;
+  $("kpiAgentTotal").textContent=agent;
+  $("kpiManaged").textContent=managed;
+  setNote("kpiManagedNote",`占比 ${pct(managed,total)}`,managed===total?"good":null);
+  $("kpiAgentMissing").textContent=agentMissing;
+  setNote("kpiAgentMissingNote",agentMissing?`占比 ${pct(agentMissing,total)} · 需排查 Agent`:"全部已上报",agentMissing?"alert":"good");
+  $("kpiAssetMissing").textContent=assetMissing;
+  setNote("kpiAssetMissingNote",assetMissing?`占比 ${pct(assetMissing,total)} · 需补登记`:"资产表已覆盖",assetMissing?"alert":"good");
+}
+
+function clearAssetKpis(){
+  const grid=$("assetKpiGrid");
+  if(grid)grid.hidden=true;
+  ["kpiAssetTotal","kpiAgentTotal","kpiManaged","kpiAgentMissing","kpiAssetMissing"]
+    .forEach(id=>{const el=$(id);if(el)el.textContent="—"});
+}
+
 /* ---------- render ---------- */
 
 function renderCharts(){
@@ -317,6 +350,7 @@ function renderError(message){
   ["chartOs","chartActivity","chartVpn","chartVendor","chartForm","chartOutlook","chartAgent","chartDisk","chartDiskAlert","chartModel"]
     .forEach(id=>{const el=$(id);if(el)el.innerHTML=`<p class="chart-placeholder">${escapeHtml(message)}</p>`});
   ["kpiTotal","kpiRecent24","kpiVpn","kpiWin11","kpiWin10","kpiStale"].forEach(id=>{const el=$(id);if(el)el.textContent="—"});
+  clearAssetKpis();
   const note=$("diskAlertNote");
   if(note){note.textContent="剩余空间低于阈值";note.classList.remove("alert")}
 }
@@ -335,6 +369,7 @@ async function loadDevices(){
       renderError("接口返回 0 条设备记录");
     }else{
       updateKpis();
+      updateAssetKpis();
       renderCharts();
     }
     setStatusUploadTime(devices);            /* 右上角展示最近一次上报时间 */

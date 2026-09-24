@@ -10,8 +10,8 @@
 
 | 页面 | 入口 | 用途 |
 | --- | --- | --- |
-| `index.html` | 生产域名根路径 | 设备明细表：排序、搜索、分页、CSV 导出、列显隐复选框、向日葵表导入与匹配 |
-| `dashboard.html` | `/dashboard.html` | 数据看板：KPI + 10 张分布图 + C 盘空间预警，可下钻到明细表 |
+| `index.html` | 生产域名根路径 | 设备明细表：排序、搜索、分页、CSV 导出、列显隐复选框、资产 CSV 导入、纳管状态展示与筛选 |
+| `dashboard.html` | `/dashboard.html` | 数据看板：KPI + 资产纳管统计 + 10 张分布图 + C 盘空间预警，可下钻到明细表 |
 | `compare.html` | `/compare.html` | 脚本覆盖对比：上传向日葵设备表，定位「在线但没装 auto 脚本」的设备 |
 
 三个页面通过顶部胶囊按钮互相跳转。**看板上所有 KPI 卡片和图表条目都可点击**，会带着筛选条件跳转到明细表。
@@ -21,23 +21,45 @@
 明细表工具栏下方新增一行**「隐藏列」**胶囊——为表格里每一个 `<th data-key>` 生成一个复选框，**勾选即隐藏该列**，选择写入 `localStorage:asset-center-hidden-cols-v1`，下次打开仍生效。隐藏列后表格的 `min-width` 按可见列的最小宽度重新计算，横向滚动条随之变短，避免「列多就一定很宽」。
 
 - 右侧「全部显示」一键清空勾选，恢复全列展示。
-- 向日葵导入的四列（见下节）只在**导入过数据**时才默认展开；导入和清除时会自动维护隐藏状态。
-- 实现：`js/app.js` 的 `buildColToggles()` + `applyColVisibility()`，列宽表 `COL_MIN_WIDTH` 集中在文件顶部。
+- 资产列的显隐由服务端数据决定：接口没返回资产字段时这些列自动收起，返回后自动展开（见下节）。用户的手动勾选始终优先，不会被自动逻辑覆盖。
+- 实现：`js/app.js` 的 `buildColToggles()` + `applyColVisibility()` + `syncDataDrivenCols()`，列宽表 `COL_MIN_WIDTH` 集中在文件顶部。
 
-### 向日葵表导入与「备注 ↔ 序列号」匹配
+### 资产 CSV 导入（向日葵表 → D1）
 
-工具栏右上「导入向日葵表」按钮——上传**向日葵标准导出 CSV**（前几行可有「须知」说明、字段后带 `\t` 都支持；老版 GBK 编码自动回退），按「备注」列匹配序列号，把每台设备的**向日葵状态 / 分组 / 识别码 / 备注**四列补到表格末尾。
+工具栏右上「导入向日葵表」按钮——上传**向日葵标准导出 CSV**（前几行可有「须知」说明、字段后带 `\t` 都支持；老版 GBK 编码自动回退），解析后**直接写入服务端**，不再缓存在浏览器本地。
 
-- **匹配口径**（按顺序，命中即停）：
-  1. `设备.serial_number` ↔ `CSV.备注` 原值（不区分大小写）
-  2. `设备.serial_number` ↔ `CSV.备注` 去掉最后一个 `-` 之前的前缀——向日葵里常见「资产编号-序列号」混写（`3101154-5CD9453NSW`），去掉前缀才和接口对得上
-  3. `设备.computer_name` ↔ `CSV.计算机名`（兜底）
-- 导入结果存到 `localStorage:asset-center-sunlogin-v1`（含原始行 + 导入时间），下次打开自动恢复；接口数据变化后点「刷新数据」会自动重新匹配，匹配数同步刷新。
-- 「向日葵状态」列按 **在线 / 离线 / 无数据** 三档排序（在线优先），用 `.sun-pill` 药丸显示，颜色与「在线」绿、「离线」灰。
-- 搜索框关键字会同时搜 `备注 / 识别码 / 分组` 三个新列。
-- 导出 CSV：只有导入过才追加这四列，没导入时**不改变原有导出格式**。
-- 「清除」按钮删除本地存储 + 把向日葵四列重新隐藏，恢复未导入状态。
-- **为什么是「备注」**：向日葵标准导出**没有专门的硬件序列号列**，序列号常被填在「备注」里；本仓库之前的对比页也讨论过这个问题，但本次实测：你这份 245 行的导出里，备注能匹配上接口 `serial_number` 的有 **221/245 台**（其中 195 台靠去前缀规则命中），加上 7 台计算机名兜底，最终 228/245（93%），匹配质量完全可用。
+```
+选择 CSV → parseSunlogin()（表头自动定位，含「备注」列）
+        → toImportRecords()（备注 = serial_number，TRIM + UPPERCASE，空 SN 跳过）
+        → 确认条数弹窗 → Import Key 弹窗
+        → POST https://ams.foxtang.com/import-assets  →  D1 asset_inventory
+        → 自动 reload GET /devices，列表立刻反映 Agent ∪ Asset 并集
+```
+
+- **「备注」是 `serial_number` 的主要来源**：向日葵标准导出没有专门的硬件序列号列，序列号常被填在「备注」里。
+- **空 SN 不上传**：`asset_inventory.serial_number` 是主键，空值记录直接跳过，并在确认弹窗里显示「缺少 SN：N」。
+- **Import Key 只在内存里**：弹窗输入后存于局部变量，请求结束即释放；**不写** `localStorage` / `sessionStorage` / Cookie / 源码。
+- 重复导入同一份 CSV 是安全的：主键冲突时 Worker 执行 UPSERT（更新而非新增重复行）。
+- 失败提示展示 Worker 返回的具体错误（`HTTP 401 导入密码错误` / `HTTP 500 数据库写入失败`），不会只显示「上传失败」。
+- 上传期间导入按钮 disabled，避免重复提交。
+
+> **Import Key 的前置条件**：Worker 的 CORS 预检必须放行 `X-Import-Key`。当前线上 `Access-Control-Allow-Headers` 只有 `Content-Type, X-Api-Key`，浏览器会拦截该请求；Worker 需要改用独立的 `X-Import-Key / IMPORT_KEY`（**不能复用 Agent 的 API Key**）并把该头加入 `Access-Control-Allow-Headers`。
+
+### 资产 / Agent 统一展示与纳管状态
+
+`GET /devices` 升级后返回 `devices` 与 `asset_inventory` 按 `serial_number` 匹配后的**并集**，前端据此区分三种纳管状态：
+
+| management_status | 中文 | 含义 |
+| --- | --- | --- |
+| `managed` | 正常纳管 | 资产表有登记，Agent 也上报了 |
+| `agent_missing` | Agent未上报 | 资产表有登记，但 Agent 未上报（未部署 / 计划任务异常 / 长期离线） |
+| `asset_missing` | 未登记资产 | Agent 上报了，但资产表里没有 |
+
+- 明细表新增「管理状态」（`.mgmt-pill` 药丸）与「最后在线」两列，可按状态排序／用工具栏「纳管状态」下拉筛选。
+- 看板新增一排统计卡：资产总数 / Agent 已上报 / 正常纳管 / Agent 未上报 / 未登记资产，点击可下钻到明细表。
+- 搜索框会同时搜 `备注 / 识别码 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP`。
+- 导出 CSV 只在接口带资产字段时才追加这几列，**不改变原有导出格式**。
+- **字段降级**：Worker 还没返回 `management_status` / `has_asset` / `has_agent` 时，上述列、筛选下拉与统计卡会整体隐藏，页面表现与升级前完全一致；后端一上线即自动生效，前端无需再改。
 
 > **复用的 CSV 解析器**：把对比页的 `decodeBuffer` / `readFileText` / `parseCsv` / `colOf` / `cell` 上移到了 `js/common.js`，明细表和对比页共用同一套；改这些函数时注意两边都会受影响。
 

@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
   <div class="app-shell">
@@ -70,6 +70,17 @@
         <div class="filter-chip-wrap" id="filterChipWrap" hidden>
           <span class="filter-chip"><span id="filterChipText"></span><button id="clearFilterBtn" class="filter-chip-x" type="button" title="清除筛选" aria-label="清除筛选">×</button></span>
         </div>
+        <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
+          <label for="manageFilter">纳管状态</label>
+          <div class="page-size-control">
+            <select id="manageFilter">
+              <option value="" selected>全部</option>
+              <option value="manage:managed">正常纳管</option>
+              <option value="manage:agent_missing">Agent未上报</option>
+              <option value="manage:asset_missing">未登记资产</option>
+            </select>
+          </div>
+        </div>
         <div class="page-size-wrap">
           <label for="pageSizeSelect">每页显示</label>
           <div class="page-size-control">
@@ -90,7 +101,6 @@
           <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
           <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
           <span id="sunStatus" class="sun-status" hidden></span>
-          <button id="clearSunBtn" class="link-btn" type="button" hidden>清除</button>
         </div>
       </div>
 
@@ -110,14 +120,16 @@
               <th data-key="c_drive_free_gb" title="剩余空间 / 总容量（GB），剩余低于 20 GB 会高亮预警"><button class="sort-btn" type="button" tabindex="-1"><span>C盘空间</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="report_time"><button class="sort-btn" type="button" tabindex="-1"><span>最后上报</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="script_version"><button class="sort-btn" type="button" tabindex="-1"><span>脚本版本</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_status" title="来自导入的向日葵设备表，按「备注」匹配序列号"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="mgmt_status" title="资产表与 Agent 的匹配结果：正常纳管 / Agent未上报 / 未登记资产"><button class="sort-btn" type="button" tabindex="-1"><span>管理状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_last" title="向日葵「最后在线时间」"><button class="sort-btn" type="button" tabindex="-1"><span>最后在线</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_status" title="来自向日葵设备表的在线状态"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_group" title="向日葵分组，如 工厂-东阿 / 上海-总部"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵分组</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_code" title="向日葵识别码"><button class="sort-btn" type="button" tabindex="-1"><span>识别码</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_note" title="向日葵「备注」列，即匹配用的序列号"><button class="sort-btn" type="button" tabindex="-1"><span>备注</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
             </tr>
           </thead>
           <tbody id="deviceBody">
-            <tr><td colspan="16" class="empty-state">正在加载设备数据…</td></tr>
+            <tr><td colspan="18" class="empty-state">正在加载设备数据…</td></tr>
           </tbody>
         </table>
       </div>
@@ -136,7 +148,7 @@
     <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
   </div>
 
-  <script src="js/common.js?v=12"></script>
-  <script src="js/app.js?v=12"></script>
+  <script src="js/common.js?v=13"></script>
+  <script src="js/app.js?v=13"></script>
 </body>
 </html>

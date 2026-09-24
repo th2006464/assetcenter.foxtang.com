@@ -2,7 +2,11 @@
    Load this file before app.js / dashboard.js. */
 
 const API_URL = "https://ams.foxtang.com/devices";
+/* 资产 CSV 导入接口（独立于 Agent 上报的 /report，鉴权用 X-Import-Key） */
+const IMPORT_API_URL = "https://ams.foxtang.com/import-assets";
 const THEME_KEY = "asset-center-theme";
+/* 旧版本把向日葵表缓存在浏览器本地，改由 D1 asset_inventory 统一存储后不再需要 */
+const LEGACY_SUN_STORE_KEY = "asset-center-sunlogin-v1";
 
 const $ = id => document.getElementById(id);
 const safe = v => (v ?? "").toString();
@@ -166,11 +170,64 @@ function formFactor(v){
   return "其他";
 }
 
+/* ---------- 资产纳管状态（devices ∪ asset_inventory） ----------
+   Worker 完成 /devices 的 FULL OUTER JOIN 后会直接返回 management_status：
+     managed       asset + agent 都有 → 正常纳管
+     agent_missing 只有 asset          → Agent 未上报
+     asset_missing 只有 agent          → 未登记资产
+   Worker 还没部署时接口没有这些字段，managementStatusOf() 返回空串，
+   前端据此自动隐藏相关列和统计卡，等后端上线即可自动生效，无需再改前端。 */
+const MANAGEMENT_STATUS={
+  managed:{label:"正常纳管",cls:"ms-managed",hint:"资产表与 Agent 均已登记"},
+  agent_missing:{label:"Agent未上报",cls:"ms-agent-missing",hint:"资产表有登记，但 Agent 未上报"},
+  asset_missing:{label:"未登记资产",cls:"ms-asset-missing",hint:"Agent 已上报，但资产表中没有"}
+};
+
+function normalizeSn(v){return safe(v).trim().toUpperCase()}
+
+/* D1 / SQLite 没有真正的 boolean，LEFT JOIN 出来的 has_asset / has_agent
+   实际可能是 1 / 0 / "1" / "true"，只认 === true 会静默全部判成 false，
+   这里统一放宽成真值判断。 */
+function asBool(v){return v===true||v===1||v==="1"||v==="true"}
+
+/* 优先用 Worker 算好的字段；缺失时按 has_agent / has_asset 现场推导；两者都没有返回 "" */
+function managementStatusOf(d){
+  if(!d)return "";
+  const raw=safe(d.management_status).trim();
+  if(MANAGEMENT_STATUS[raw])return raw;
+  const hasAgent=asBool(d.has_agent),hasAsset=asBool(d.has_asset);
+  if(!hasAgent&&!hasAsset&&d.has_agent===undefined&&d.has_asset===undefined)return "";
+  if(hasAgent&&hasAsset)return "managed";
+  if(hasAsset)return "agent_missing";
+  if(hasAgent)return "asset_missing";
+  return "";
+}
+
+function managementLabel(key){
+  return MANAGEMENT_STATUS[key]?MANAGEMENT_STATUS[key].label:"";
+}
+
+/* 接口是否已提供统一资产数据（决定管理状态列 / 纳管统计卡是否出现） */
+function hasManagementData(list){
+  return (list||[]).some(d=>managementStatusOf(d)!=="");
+}
+
 /* ---------- 结构化筛选（看板下钻 → 明细表） ----------
-   以下筛选项都是「计算出来的概念」（活跃度、VPN 状态、形态、邮箱绑定、磁盘分档），
+   以下筛选项都是「计算出来的概念」（活跃度、VPN 状态、形态、邮箱绑定、磁盘分档、纳管状态），
    无法用普通关键字搜索命中，所以走独立的 filter 参数：index.html?filter=key:value。
    key/value 与看板图表一一对应，两边共用同一份定义，避免口径漂移。 */
 const FILTER_SPECS={
+  manage:{
+    /* asset / agent 是「只要一边有」的宽松口径，给看板两张汇总卡下钻用；
+       另外三个是互斥的三态，加起来等于全量。 */
+    labels:{managed:"正常纳管",agent_missing:"Agent未上报",asset_missing:"未登记资产",
+            asset:"资产表内设备",agent:"Agent 已上报设备"},
+    test:(d,v)=>{
+      if(v==="asset")return asBool(d.has_asset);
+      if(v==="agent")return asBool(d.has_agent);
+      return managementStatusOf(d)===v;
+    }
+  },
   activity:{
     /* 24h / ge7d 是看板 KPI 用的「汇总档」，跨了上面的细分档位：
        24h = 3h ∪ 3h-24h（a < 1 天）；ge7d = 8-30d ∪ ge30d（a >= 7 天）。

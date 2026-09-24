@@ -7,8 +7,8 @@
   <title>自动化运维仪表盘 · 自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=12">
-  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/dashboard.css?v=2">
 </head>
 <body>
   <div class="app-shell">
@@ -66,6 +66,34 @@
       </article>
     </section>
 
+    <section class="kpi-grid kpi-grid-secondary" id="assetKpiGrid" hidden>
+      <article class="kpi-card kpi-clickable" data-query="filter=manage:asset" title="点击筛选资产表内登记的设备">
+        <span class="stat-label">资产总数</span>
+        <strong id="kpiAssetTotal">—</strong>
+        <span class="stat-note">asset_inventory 已登记</span>
+      </article>
+      <article class="kpi-card kpi-clickable" data-query="filter=manage:agent" title="点击筛选 Agent 已上报的设备">
+        <span class="stat-label">Agent 已上报</span>
+        <strong id="kpiAgentTotal">—</strong>
+        <span class="stat-note">devices 有数据</span>
+      </article>
+      <article class="kpi-card kpi-clickable" data-query="filter=manage:managed" title="点击筛选资产与 Agent 都已登记的设备">
+        <span class="stat-label">正常纳管</span>
+        <strong id="kpiManaged">—</strong>
+        <span class="stat-note" id="kpiManagedNote">占比 —</span>
+      </article>
+      <article class="kpi-card kpi-clickable" data-query="filter=manage:agent_missing" title="点击筛选资产表有、但 Agent 未上报的设备">
+        <span class="stat-label">Agent 未上报</span>
+        <strong id="kpiAgentMissing">—</strong>
+        <span class="stat-note" id="kpiAgentMissingNote">需排查 Agent / 计划任务</span>
+      </article>
+      <article class="kpi-card kpi-clickable" data-query="filter=manage:asset_missing" title="点击筛选 Agent 已上报、但资产表没有的设备">
+        <span class="stat-label">未登记资产</span>
+        <strong id="kpiAssetMissing">—</strong>
+        <span class="stat-note" id="kpiAssetMissingNote">需在资产表补登记</span>
+      </article>
+    </section>
+
     <section class="chart-grid">
       <article class="chart-card">
         <header class="chart-head"><h2>操作系统版本</h2><span class="chart-note">按 os_name 归类</span></header>
@@ -119,7 +147,7 @@
 
   <div id="chartTip" class="chart-tip" role="tooltip" aria-hidden="true"></div>
 
-  <script src="js/common.js?v=12"></script>
-  <script src="js/dashboard.js?v=12"></script>
+  <script src="js/common.js?v=13"></script>
+  <script src="js/dashboard.js?v=13"></script>
 </body>
 </html>

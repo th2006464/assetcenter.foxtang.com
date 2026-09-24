@@ -35,6 +35,10 @@ html[data-theme="dark"]{
 .kpi-card.kpi-clickable{cursor:pointer;transition:background .12s ease}
 .kpi-card.kpi-clickable:hover{background:var(--surface-2)}
 .kpi-card.kpi-clickable:hover .stat-label{color:var(--accent)}
+/* 第二行：资产纳管统计（5 张卡）。接口没有纳管数据时整块隐藏 */
+.kpi-grid-secondary{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpi-grid-secondary[hidden]{display:none}
+.kpi-grid-secondary + .chart-grid{margin-top:0}
 
 /* Chart cards */
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}

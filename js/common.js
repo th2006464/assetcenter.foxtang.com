@@ -97,7 +97,7 @@ function setStatusUploadTime(devices){
   const latest=latestReportTime(devices);
   const p=latest?beijingParts(latest):null;
   if(!p){setStatus("数据上传时间未知","","暂无可解析的上报时间");return}
-  setStatus(`数据上传时间：${p.date} ${p.time}`,"ok",
+  setStatus(`数据上传时间：\n${p.date} ${p.time}`,"ok",
     `最近一次设备上报：${formatBeijingTime(latest)}（北京时间）`);
 }
 

@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const label={textContent:'',removeAttribute(){},title:''},dot={className:''};
+const context=vm.createContext({document:{getElementById:id=>id==='statusText'?label:id==='statusDot'?dot:null}});
+vm.runInContext(fs.readFileSync('js/common.js','utf8'),context);
+context.rows=[{report_time:'2026-09-24T04:23:00Z'}];
+vm.runInContext('setStatusUploadTime(rows)',context);
+assert.equal(label.textContent,'数据上传时间：\n2026-09-24 12:23');
+console.log('upload time tests passed');

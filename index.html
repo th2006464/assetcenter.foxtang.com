@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=17">
 </head>
 <body>
   <div class="app-shell">
@@ -70,17 +70,6 @@
         <div class="filter-chip-wrap" id="filterChipWrap" hidden>
           <span class="filter-chip"><span id="filterChipText"></span><button id="clearFilterBtn" class="filter-chip-x" type="button" title="清除筛选" aria-label="清除筛选">×</button></span>
         </div>
-        <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
-          <label for="manageFilter">纳管状态</label>
-          <div class="page-size-control">
-            <select id="manageFilter">
-              <option value="" selected>全部</option>
-              <option value="manage:managed">正常纳管</option>
-              <option value="manage:agent_missing">Agent未上报</option>
-              <option value="manage:asset_missing">未登记资产</option>
-            </select>
-          </div>
-        </div>
         <div class="page-size-wrap">
           <label for="pageSizeSelect">每页显示</label>
           <div class="page-size-control">
@@ -98,6 +87,14 @@
             <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
           </div>
           <div class="col-toggles" id="colToggles"></div>
+          <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
+            <span class="colbar-title">纳管状态</span>
+            <div class="manage-toggles">
+              <label class="col-toggle"><input type="checkbox" data-manage="managed"><span>正常纳管</span></label>
+              <label class="col-toggle"><input type="checkbox" data-manage="agent_missing"><span>Agent未上报</span></label>
+              <label class="col-toggle"><input type="checkbox" data-manage="asset_missing"><span>未登记资产</span></label>
+            </div>
+          </div>
           <div class="colbar-actions">
             <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
             <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
@@ -153,7 +150,7 @@
     <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
   </div>
 
-  <script src="js/common.js?v=14"></script>
-  <script src="js/app.js?v=15"></script>
+  <script src="js/common.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
 </body>
 </html>

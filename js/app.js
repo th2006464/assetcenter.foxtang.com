@@ -5,6 +5,7 @@ let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
+const manageSelection = new Set(); /* 高级筛选中的三态多选 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
@@ -105,17 +106,15 @@ function compareValues(a,b,key){
 }
 
 /* 看板下钻用的结构化筛选（?filter=key:value），与关键字搜索是 AND 关系 */
-/* 纳管状态下拉与 activeFilter 双向同步：
-   看板下钻（?filter=manage:xxx）进来时自动选中，点「×」清除筛选时自动回到「全部」。
-   接口还没有纳管数据时整块隐藏。 */
+/* 看板的单状态下钻与高级筛选复选框保持同步。 */
 function syncManageFilter(){
-  const wrap=$("manageFilterWrap"),sel=$("manageFilter");
-  if(!wrap||!sel)return;
+  const wrap=$("manageFilterWrap");
+  if(!wrap)return;
   wrap.hidden=!hasManagementData(allDevices);
-  /* 看板还能下钻到 manage:asset / manage:agent（下拉里没有这两项），
-     找不到对应 option 时退回「全部」，避免 select 显示空白。 */
-  const v=(activeFilter&&activeFilter.key==="manage")?`manage:${activeFilter.value}`:"";
-  sel.value=[...sel.options].some(o=>o.value===v)?v:"";
+  const fromLink=activeFilter&&activeFilter.key==="manage"?activeFilter.value:"";
+  wrap.querySelectorAll("input[data-manage]").forEach(input=>{
+    input.checked=manageSelection.has(input.dataset.manage)||fromLink===input.dataset.manage;
+  });
 }
 
 function updateFilterChip(){
@@ -129,6 +128,7 @@ function updateFilterChip(){
 }
 
 function clearFilter(){
+  if(activeFilter&&activeFilter.key==="manage")manageSelection.clear();
   activeFilter=null;
   try{
     const url=new URL(location.href);
@@ -486,6 +486,7 @@ function getFilteredSorted(){
     "sun_note","sun_code","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
   let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
+    &&(!manageSelection.size||manageSelection.has(managementStatusOf(d)))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
     /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
@@ -664,10 +665,22 @@ document.addEventListener("DOMContentLoaded",()=>{
   syncManageFilter();
   const clearBtn=$("clearFilterBtn");
   if(clearBtn)clearBtn.addEventListener("click",clearFilter);
-  const manageSel=$("manageFilter");
-  if(manageSel)manageSel.addEventListener("change",()=>{
-    const v=manageSel.value;
-    activeFilter=v?parseFilterParam(v):null;
+  const manageWrap=$("manageFilterWrap");
+  if(manageWrap)manageWrap.addEventListener("change",e=>{
+    const input=e.target.closest("input[data-manage]");
+    if(!input)return;
+    /* 从看板单状态下钻进入时，第一次勾选把单选条件转成多选集合。 */
+    if(activeFilter&&activeFilter.key==="manage"&&MANAGEMENT_STATUS[activeFilter.value]){
+      manageSelection.add(activeFilter.value);
+      activeFilter=null;
+      try{
+        const url=new URL(location.href);
+        url.searchParams.delete("filter");
+        history.replaceState(null,"",url.toString());
+      }catch(e){/* file:// 等场景忽略 */}
+    }
+    if(input.checked)manageSelection.add(input.dataset.manage);
+    else manageSelection.delete(input.dataset.manage);
     updateFilterChip();
     currentPage=1;
     render();

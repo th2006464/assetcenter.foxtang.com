@@ -153,3 +153,5 @@ th.sorted .sort-indicator .arrow:not(.active){opacity:.3}
 .page-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .page-btn:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:760px){.page-size-wrap{margin-right:0}.panel-footer{align-items:flex-start}.pagination{justify-content:flex-start}}
+
+.source-filter-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}

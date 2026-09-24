@@ -4,6 +4,7 @@ let sortAsc = false;
 let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
+let sourceFilter = "";       /* "agent" / "asset" / 空串 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
@@ -468,13 +469,24 @@ async function postImport(records,total,skippedCount,importKey){
   }
 }
 
+function setSourceFilter(source){
+  sourceFilter=sourceFilter===source?"":source;
+  ["agent","asset"].forEach(kind=>{
+    const btn=$(kind==="agent"?"showAgentBtn":"showAssetBtn");
+    if(btn)btn.setAttribute("aria-pressed",String(sourceFilter===kind));
+  });
+  currentPage=1;
+  render();
+}
+
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   /* 资产表字段也参与搜索：备注 / 识别码 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
     "sun_note","sun_code","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
   let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
-    &&matchesFilter(d,activeFilter));
+    &&matchesFilter(d,activeFilter)
+    &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
     /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
     if(sortKey==="c_drive_free_gb"){
@@ -668,6 +680,9 @@ document.addEventListener("DOMContentLoaded",()=>{
     autoHiddenCols.clear();
     saveHiddenCols();refreshColToggles();applyColVisibility();
   });
+  const agentBtn=$("showAgentBtn"),assetBtn=$("showAssetBtn");
+  if(agentBtn)agentBtn.addEventListener("click",()=>setSourceFilter("agent"));
+  if(assetBtn)assetBtn.addEventListener("click",()=>setSourceFilter("asset"));
   const sunInput=$("sunFileInput");
   const importBtn=$("importSunBtn");
   if(importBtn&&sunInput){

@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=13">
+  <link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
   <div class="app-shell">
@@ -98,6 +98,8 @@
         <div class="col-toggles" id="colToggles"></div>
         <div class="colbar-actions">
           <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
+          <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
+          <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
           <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
           <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
           <span id="sunStatus" class="sun-status" hidden></span>
@@ -149,6 +151,6 @@
   </div>
 
   <script src="js/common.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>

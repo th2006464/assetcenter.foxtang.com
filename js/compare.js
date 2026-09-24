@@ -34,49 +34,8 @@ const state = {
   sortKey: "cn", sortAsc: true
 };
 
-/* ---------- 文件读取：UTF-8 优先，出现替换字符时回退 GBK ---------- */
-function decodeBuffer(buf) {
-  let text = new TextDecoder("utf-8").decode(buf);
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-  if (text.includes("\uFFFD")) {
-    try {
-      const gbk = new TextDecoder("gbk").decode(buf);
-      if (!gbk.includes("\uFFFD")) return gbk.replace(/^\uFEFF/, "");
-    } catch (e) { /* 浏览器不支持 gbk，继续用 utf-8 结果 */ }
-  }
-  return text;
-}
-
-function readFileText(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(decodeBuffer(fr.result));
-    fr.onerror = () => reject(fr.error || new Error("读取文件失败"));
-    fr.readAsArrayBuffer(file);
-  });
-}
-
-/* ---------- CSV 解析：支持引号包裹、字段内逗号/换行、CRLF ---------- */
-function parseCsv(text) {
-  const rows = [];
-  let row = [], cell = "", inQ = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQ) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { cell += '"'; i++; }
-        else inQ = false;
-      } else cell += c;
-    } else {
-      if (c === '"') inQ = true;
-      else if (c === ",") { row.push(cell); cell = ""; }
-      else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
-      else if (c !== "\r") cell += c;
-    }
-  }
-  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
+/* 文件读取 / CSV 解析 / colOf / cell 已上移到 js/common.js，首页导入向日葵表时复用同一套。
+   改这些公共函数时注意对比页和明细表都会受影响。 */
 
 /* ---------- 类型识别：按表头判断是标准表还是资产表 ---------- */
 function detectKind(rows) {
@@ -90,15 +49,6 @@ function detectKind(rows) {
   }
   return null;
 }
-
-function colOf(header, names) {
-  for (const n of names) {
-    const i = header.findIndex(h => safe(h).trim() === n);
-    if (i >= 0) return i;
-  }
-  return -1;
-}
-function cell(row, i) { return i >= 0 ? safe(row[i]).trim() : ""; }
 
 /* 标准表：表头行可能不在第一行（前面有「须知」说明）。
    标准版向日葵导出是 20 列，表头在第 5 行：

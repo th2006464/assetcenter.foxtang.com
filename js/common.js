@@ -271,6 +271,71 @@ function initTheme(){
   if(btn)btn.addEventListener("click",()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
 }
 
+/* ---------- 文件读取与 CSV 解析（首页导入向日葵表、对比页上传共用同一套） ----------
+   向日葵导出有两个坑：① 老版本是 GBK 编码；② 表头不一定在第一行（标准导出前面有「须知」说明行）。
+   所以解码要 UTF-8 优先 + GBK 兜底，解析后由调用方自己找表头行。 */
+function decodeBuffer(buf) {
+  let text = new TextDecoder("utf-8").decode(buf);
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  if (text.includes("\uFFFD")) {
+    try {
+      const gbk = new TextDecoder("gbk").decode(buf);
+      if (!gbk.includes("\uFFFD")) return gbk.replace(/^\uFEFF/, "");
+    } catch (e) { /* 浏览器不支持 gbk，继续用 utf-8 结果 */ }
+  }
+  return text;
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(decodeBuffer(fr.result));
+    fr.onerror = () => reject(fr.error || new Error("读取文件失败"));
+    fr.readAsArrayBuffer(file);
+  });
+}
+
+/* 支持引号包裹、字段内逗号 / 换行、CRLF */
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i++; }
+        else inQ = false;
+      } else cell += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ",") { row.push(cell); cell = ""; }
+      else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else if (c !== "\r") cell += c;
+    }
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+/* 按候选列名找列下标（精确匹配，全找不到返回 -1） */
+function colOf(header, names) {
+  for (const n of names) {
+    const i = header.findIndex(h => safe(h).trim() === n);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+function cell(row, i) { return i >= 0 ? safe(row[i]).trim() : ""; }
+
+/* 序列号归一化：向日葵「备注」常写成「资产编号-序列号」（如 3101154-5CD9453NSW），
+   去掉最后一个 `-` 之前的前缀才能和接口的 serial_number 对上。 */
+function snTail(v) {
+  const s = safe(v).trim().toUpperCase();
+  if (!s) return "";
+  const i = s.lastIndexOf("-");
+  return i >= 0 ? s.slice(i + 1) : s;
+}
+
 function currentThemeIsDark(){
   const attr=document.documentElement.dataset.theme;
   if(attr)return attr==="dark";

@@ -5,19 +5,17 @@ let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
-const manageSelection = new Set(); /* 高级筛选中的三态多选 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
 /* 升级标记：资产列改由服务端供数后，只需把旧的「默认隐藏」恢复一次 */
-const COLS_MIGRATION_KEY = "asset-center-hidden-cols-migrated-v2";
+const COLS_MIGRATION_KEY = "asset-center-hidden-cols-migrated-v3";
 /* 每列最小宽度：隐藏列后表格整体收窄，横向滚动条也随之变短 */
 const COL_MIN_WIDTH = {
   computer_name:170,serial_number:150,windows_user:140,forticlient_user:130,
   forticlient_last_seen:150,outlook_account:200,manufacturer:100,model:210,
   os_name:180,c_drive_free_gb:130,report_time:150,script_version:120,
-  mgmt_status:130,sun_last:150,
-  sun_status:100,sun_group:130,sun_code:110,sun_note:150
+  sun_last:150,sun_group:130,sun_note:150
 };
 let hiddenCols = loadHiddenCols();
 
@@ -25,9 +23,9 @@ let hiddenCols = loadHiddenCols();
    数据不再落在浏览器本地：CSV 解析后直接 POST /import-assets 写入 D1 asset_inventory，
    展示用的资产字段由 GET /devices 统一返回（Agent ∪ Asset 的 SN 并集）。
    接口暂时还没返回这些字段时，相关列会自动隐藏，后端上线后自动出现。 */
-const SUN_KEYS = ["sun_status","sun_group","sun_code","sun_note","sun_last"];
-const MGMT_COL = "mgmt_status";
-const DATA_DRIVEN_COLS = SUN_KEYS.concat([MGMT_COL]);
+/* 「管理状态」「向日葵状态」「识别码」三列已下线，只保留分组 / 备注 / 最后在线 */
+const SUN_KEYS = ["sun_group","sun_note","sun_last"];
+const DATA_DRIVEN_COLS = SUN_KEYS.slice();
 /* 本轮因「接口没有该字段数据」而临时隐藏的列；不写入用户偏好，数据到位后自动恢复显示 */
 let autoHiddenCols = new Set();
 let sunMeta = null;      /* 最近一次导入结果 {name, importedAt, read, imported, skipped} */
@@ -105,21 +103,11 @@ function compareValues(a,b,key){
   return av<bv?-1:av>bv?1:0;
 }
 
-/* 看板下钻用的结构化筛选（?filter=key:value），与关键字搜索是 AND 关系 */
-/* 看板的单状态下钻与高级筛选复选框保持同步。 */
-function syncManageFilter(){
-  const wrap=$("manageFilterWrap");
-  if(!wrap)return;
-  wrap.hidden=!hasManagementData(allDevices);
-  const fromLink=activeFilter&&activeFilter.key==="manage"?activeFilter.value:"";
-  wrap.querySelectorAll("input[data-manage]").forEach(input=>{
-    input.checked=manageSelection.has(input.dataset.manage)||fromLink===input.dataset.manage;
-  });
-}
-
+/* 看板下钻用的结构化筛选（?filter=key:value），与关键字搜索是 AND 关系。
+   高级筛选里的「纳管状态」多选已随管理状态列一起下线，看板下钻
+   （?filter=manage:xxx）仍由筛选标签承接。 */
 function updateFilterChip(){
   const wrap=$("filterChipWrap");
-  syncManageFilter();
   if(!wrap)return;
   if(!activeFilter){wrap.hidden=true;return}
   wrap.hidden=false;
@@ -128,7 +116,6 @@ function updateFilterChip(){
 }
 
 function clearFilter(){
-  if(activeFilter&&activeFilter.key==="manage")manageSelection.clear();
   activeFilter=null;
   try{
     const url=new URL(location.href);
@@ -264,21 +251,17 @@ function toImportRecords(rows){
    Worker 还没升级时这些字段全是 undefined，对应列会自动隐藏，
    原有 Agent 字段的展示不受影响。 */
 function normalizeAssetFields(d){
-  d.sun_status=safe(d.sun_status).trim();
   d.sun_group=safe(d.sun_group).trim()||safe(d.asset_group).trim();
-  d.sun_code=safe(d.sunlogin_code).trim();
   d.sun_note=safe(d.asset_note).trim();
   d.sun_last=safe(d.last_online_time).trim();
-  d.sun_online=/在线/.test(d.sun_status)&&!/离线/.test(d.sun_status);
-  d.mgmt_status=managementStatusOf(d);
 }
 
 /* 按本轮数据决定哪些列「暂时没有内容」，只记在内存里，不覆盖用户手动的显隐偏好 */
 function syncDataDrivenCols(){
   autoHiddenCols=new Set();
-  const hasSun=allDevices.some(d=>d.sun_status||d.sun_group||d.sun_code||d.sun_note||d.sun_last);
-  if(!hasSun)SUN_KEYS.forEach(k=>autoHiddenCols.add(k));
-  if(!hasManagementData(allDevices))autoHiddenCols.add(MGMT_COL);
+  SUN_KEYS.forEach(k=>{
+    if(!allDevices.some(d=>safe(d[k]).trim()))autoHiddenCols.add(k);
+  });
 }
 
 /* 实际是否隐藏 = 用户偏好 ∪ 本轮无数据 */
@@ -296,6 +279,8 @@ function migrateHiddenCols(){
   try{
     if(localStorage.getItem(COLS_MIGRATION_KEY))return;
     DATA_DRIVEN_COLS.forEach(k=>hiddenCols.delete(k));
+    /* 已下线的三列（管理状态 / 向日葵状态 / 识别码）清掉残留的隐藏偏好 */
+    ["mgmt_status","sun_status","sun_code"].forEach(k=>hiddenCols.delete(k));
     saveHiddenCols();
     localStorage.setItem(COLS_MIGRATION_KEY,"1");
   }catch(e){/* 存储不可用，仅本次生效 */}
@@ -481,12 +466,11 @@ function setSourceFilter(source){
 
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
-  /* 资产表字段也参与搜索：备注 / 识别码 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
+  /* 资产表字段也参与搜索：备注 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
-    "sun_note","sun_code","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
+    "sun_note","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
   let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
-    &&(!manageSelection.size||manageSelection.has(managementStatusOf(d)))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
     /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
@@ -497,25 +481,12 @@ function getFilteredSorted(){
       if(bv===null)return -1;
       return (av-bv)*(sortAsc?1:-1);
     }
-    /* 管理状态：正常纳管 → Agent未上报 → 未登记资产 → 无数据（接口未提供时恒排最后） */
-    if(sortKey===MGMT_COL){
-      const rank=d=>({managed:0,agent_missing:1,asset_missing:2})[d.mgmt_status]??3;
-      const av=rank(a),bv=rank(b);
-      if(av===3&&bv===3)return 0;
-      if(av===3)return 1;
-      if(bv===3)return -1;
-      return (av-bv)*(sortAsc?1:-1);
-    }
-    /* 向日葵列：没匹配上的（空值）恒排最后；状态列按 在线 → 离线 → 无数据 排 */
+    /* 向日葵列（分组 / 备注 / 最后在线）：没匹配上的（空值）恒排最后 */
     if(sortKey.startsWith("sun_")){
       const av=safe(a[sortKey]).trim(),bv=safe(b[sortKey]).trim();
       if(!av&&!bv)return 0;
       if(!av)return 1;
       if(!bv)return -1;
-      if(sortKey==="sun_status"){
-        const rank=d=>!d.sun_status?2:(d.sun_online?0:1);
-        return (rank(a)-rank(b))*(sortAsc?1:-1);
-      }
       return compareValues(a,b,sortKey)*(sortAsc?1:-1);
     }
     return compareValues(a,b,sortKey)*(sortAsc?1:-1);
@@ -541,13 +512,6 @@ function renderPagination(totalRows,totalPages){
   prev.disabled=currentPage<=1;
   next.disabled=currentPage>=totalPages;
   info.textContent=`第 ${currentPage} / ${totalPages} 页`;
-}
-
-/* 纳管状态药丸。接口没返回 management_status 时 d.mgmt_status 为空 → 显示 —（该列届时会整体隐藏） */
-function renderMgmtStatus(d){
-  const meta=MANAGEMENT_STATUS[d.mgmt_status];
-  if(!meta)return '<span class="muted">—</span>';
-  return `<span class="mgmt-pill ${meta.cls}" title="${escapeHtml(meta.hint)}">${escapeHtml(meta.label)}</span>`;
 }
 
 function render(){
@@ -588,11 +552,8 @@ function render(){
       <td>${displayDrive(d.c_drive_free_gb,d.c_drive_total_gb)}</td>
       <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(formatBeijingTime(d.report_time))}</span></td>
       <td class="mono">${escapeHtml(displayValue(d.script_version))}</td>
-      <td>${renderMgmtStatus(d)}</td>
       <td>${escapeHtml(displayValue(d.sun_last))}</td>
-      <td>${d.sun_status?`<span class="sun-pill ${d.sun_online?"online":"offline"}">${escapeHtml(d.sun_status)}</span>`:'<span class="muted">—</span>'}</td>
       <td>${escapeHtml(displayValue(d.sun_group))}</td>
-      <td class="mono">${escapeHtml(displayValue(d.sun_code))}</td>
       <td class="mono">${escapeHtml(displayValue(d.sun_note))}</td>
     </tr>`;
   }).join("");
@@ -612,7 +573,6 @@ async function loadDevices(){
     syncDataDrivenCols();
     refreshColToggles();
     updateSunStatus();
-    syncManageFilter();
     render();
     setStatusUploadTime(allDevices);          /* 右上角展示最近一次上报时间 */
     $("lastUpdated").textContent="页面刷新时间："+new Date().toLocaleString();
@@ -632,12 +592,10 @@ function exportCsv(){
     ["c_drive_total_gb","C Drive Total GB"],["c_drive_free_gb","C Drive Free GB"]
   ];
   /* 接口带资产字段时才追加这几列，没有资产数据时不干扰原有导出格式 */
-  const hasAssetCols=allDevices.some(d=>d.sun_status||d.sun_group||d.sun_code||d.sun_note||d.sun_last);
+  const hasAssetCols=allDevices.some(d=>d.sun_group||d.sun_note||d.sun_last);
   if(hasAssetCols){
-    headers.push(["sun_status","向日葵状态"],["sun_group","向日葵分组"],["sun_code","识别码"],
-      ["sun_note","备注"],["sun_last","最后在线"]);
+    headers.push(["sun_group","向日葵分组"],["sun_note","备注"],["sun_last","最后在线"]);
   }
-  if(hasManagementData(allDevices))headers.push(["mgmt_status","管理状态"]);
   const esc=v=>`"${safe(v).replaceAll('"','""')}"`;
   /* 磁盘字段导出原始数值，不合并；旧 Agent 无数据 → 空值 */
   const cell=(r,key)=>{
@@ -662,29 +620,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   if(preset)$("searchInput").value=preset;
   activeFilter=parseFilterParam(params.get("filter"));
   updateFilterChip();
-  syncManageFilter();
   const clearBtn=$("clearFilterBtn");
   if(clearBtn)clearBtn.addEventListener("click",clearFilter);
-  const manageWrap=$("manageFilterWrap");
-  if(manageWrap)manageWrap.addEventListener("change",e=>{
-    const input=e.target.closest("input[data-manage]");
-    if(!input)return;
-    /* 从看板单状态下钻进入时，第一次勾选把单选条件转成多选集合。 */
-    if(activeFilter&&activeFilter.key==="manage"&&MANAGEMENT_STATUS[activeFilter.value]){
-      manageSelection.add(activeFilter.value);
-      activeFilter=null;
-      try{
-        const url=new URL(location.href);
-        url.searchParams.delete("filter");
-        history.replaceState(null,"",url.toString());
-      }catch(e){/* file:// 等场景忽略 */}
-    }
-    if(input.checked)manageSelection.add(input.dataset.manage);
-    else manageSelection.delete(input.dataset.manage);
-    updateFilterChip();
-    currentPage=1;
-    render();
-  });
   buildColToggles();
   applyColVisibility();
   const showAll=$("showAllColsBtn");

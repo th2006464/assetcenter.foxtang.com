@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
   <div class="app-shell">
@@ -87,14 +87,6 @@
             <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
           </div>
           <div class="col-toggles" id="colToggles"></div>
-          <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
-            <span class="colbar-title">纳管状态</span>
-            <div class="manage-toggles">
-              <label class="col-toggle"><input type="checkbox" data-manage="managed"><span>正常纳管</span></label>
-              <label class="col-toggle"><input type="checkbox" data-manage="agent_missing"><span>Agent未上报</span></label>
-              <label class="col-toggle"><input type="checkbox" data-manage="asset_missing"><span>未登记资产</span></label>
-            </div>
-          </div>
           <div class="colbar-actions">
             <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
             <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
@@ -122,16 +114,13 @@
               <th data-key="c_drive_free_gb" title="剩余空间 / 总容量（GB），剩余低于 20 GB 会高亮预警"><button class="sort-btn" type="button" tabindex="-1"><span>C盘空间</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="report_time"><button class="sort-btn" type="button" tabindex="-1"><span>最后上报</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="script_version"><button class="sort-btn" type="button" tabindex="-1"><span>脚本版本</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="mgmt_status" title="资产表与 Agent 的匹配结果：正常纳管 / Agent未上报 / 未登记资产"><button class="sort-btn" type="button" tabindex="-1"><span>管理状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_last" title="向日葵「最后在线时间」"><button class="sort-btn" type="button" tabindex="-1"><span>最后在线</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_status" title="来自向日葵设备表的在线状态"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_group" title="向日葵分组，如 工厂-东阿 / 上海-总部"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵分组</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_code" title="向日葵识别码"><button class="sort-btn" type="button" tabindex="-1"><span>识别码</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_note" title="向日葵「备注」列，即匹配用的序列号"><button class="sort-btn" type="button" tabindex="-1"><span>备注</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
             </tr>
           </thead>
           <tbody id="deviceBody">
-            <tr><td colspan="18" class="empty-state">正在加载设备数据…</td></tr>
+            <tr><td colspan="15" class="empty-state">正在加载设备数据…</td></tr>
           </tbody>
         </table>
       </div>
@@ -150,7 +139,7 @@
     <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
   </div>
 
-  <script src="js/common.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/common.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>

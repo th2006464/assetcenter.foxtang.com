@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>自动化终端管理平台</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css?v=18">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="favicon.svg" alt="" width="56" height="56">
+        <div>
+          <div class="eyebrow">IT Operations Automation</div>
+          <h1>自动化终端管理平台</h1>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="header-actions-row">
+          <div class="top-actions" aria-label="数据操作">
+            <a class="btn btn-primary" href="dashboard.html" title="打开可视化仪表盘">仪表盘</a>
+            <a class="btn" href="compare.html" title="上传两张表对比，找出没装 auto 脚本的设备">对比工具</a>
+            <button id="refreshBtn" class="btn" type="button">刷新数据</button>
+            <button id="exportBtn" class="btn" type="button">导出 CSV</button>
+            <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
+          </div>
+          <button id="themeToggle" class="theme-toggle-standalone" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span class="stat-label">设备总数</span>
+        <strong id="statTotal">0</strong>
+        <span class="stat-note">当前数据库记录</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">HP 设备</span>
+        <strong id="statHP">0</strong>
+        <span class="stat-note">Manufacturer = HP</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Windows 11</span>
+        <strong id="statWin11">0</strong>
+        <span class="stat-note">按系统名称识别</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">自动化上报</span>
+        <strong id="statAuto">0</strong>
+        <span class="stat-note">通过自动化脚本上传</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">24h 内上报</span>
+        <strong id="statRecent24">0</strong>
+        <span class="stat-note">最近 24 小时有更新</span>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <div class="search-wrap">
+          <label for="searchInput">搜索设备</label>
+          <input id="searchInput" type="search" placeholder="SN / 计算机名 / 用户 / VPN 用户 / 邮箱 / 型号" autocomplete="off">
+        </div>
+        <div class="filter-chip-wrap" id="filterChipWrap" hidden>
+          <span class="filter-chip"><span id="filterChipText"></span><button id="clearFilterBtn" class="filter-chip-x" type="button" title="清除筛选" aria-label="清除筛选">×</button></span>
+        </div>
+        <div class="page-size-wrap">
+          <label for="pageSizeSelect">每页显示</label>
+          <div class="page-size-control">
+            <select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select>
+            <span>条</span>
+          </div>
+        </div>
+      </div>
+
+      <details class="advanced-filter" id="advancedFilter">
+        <summary>高级筛选</summary>
+        <div class="colbar">
+          <div class="colbar-head">
+            <span class="colbar-title">隐藏列</span>
+            <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
+          </div>
+          <div class="col-toggles" id="colToggles"></div>
+          <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
+            <span class="colbar-title">纳管状态</span>
+            <div class="manage-toggles">
+              <label class="col-toggle"><input type="checkbox" data-manage="managed"><span>正常纳管</span></label>
+              <label class="col-toggle"><input type="checkbox" data-manage="agent_missing"><span>Agent未上报</span></label>
+              <label class="col-toggle"><input type="checkbox" data-manage="asset_missing"><span>未登记资产</span></label>
+            </div>
+          </div>
+          <div class="colbar-actions">
+            <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
+            <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
+            <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
+            <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
+            <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
+            <span id="sunStatus" class="sun-status" hidden></span>
+          </div>
+        </div>
+      </details>
+
+      <div class="table-wrap">
+        <table id="deviceTable">
+          <thead>
+            <tr>
+              <th data-key="computer_name"><button class="sort-btn" type="button" tabindex="-1"><span>计算机名</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="serial_number"><button class="sort-btn" type="button" tabindex="-1"><span>SN</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="windows_user"><button class="sort-btn" type="button" tabindex="-1"><span>当前用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="forticlient_user"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="forticlient_last_seen"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 最后活动</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="outlook_account"><button class="sort-btn" type="button" tabindex="-1"><span>Outlook 邮箱</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="manufacturer"><button class="sort-btn" type="button" tabindex="-1"><span>厂商</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="model"><button class="sort-btn" type="button" tabindex="-1"><span>型号</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="os_name"><button class="sort-btn" type="button" tabindex="-1"><span>操作系统</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="c_drive_free_gb" title="剩余空间 / 总容量（GB），剩余低于 20 GB 会高亮预警"><button class="sort-btn" type="button" tabindex="-1"><span>C盘空间</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="report_time"><button class="sort-btn" type="button" tabindex="-1"><span>最后上报</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="script_version"><button class="sort-btn" type="button" tabindex="-1"><span>脚本版本</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="mgmt_status" title="资产表与 Agent 的匹配结果：正常纳管 / Agent未上报 / 未登记资产"><button class="sort-btn" type="button" tabindex="-1"><span>管理状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_last" title="向日葵「最后在线时间」"><button class="sort-btn" type="button" tabindex="-1"><span>最后在线</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_status" title="来自向日葵设备表的在线状态"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_group" title="向日葵分组，如 工厂-东阿 / 上海-总部"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵分组</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_code" title="向日葵识别码"><button class="sort-btn" type="button" tabindex="-1"><span>识别码</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-key="sun_note" title="向日葵「备注」列，即匹配用的序列号"><button class="sort-btn" type="button" tabindex="-1"><span>备注</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+            </tr>
+          </thead>
+          <tbody id="deviceBody">
+            <tr><td colspan="18" class="empty-state">正在加载设备数据…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel-footer">
+        <span id="resultCount">0 台设备</span>
+        <div id="pagination" class="pagination">
+          <button id="prevPageBtn" class="page-btn" type="button">上一页</button>
+          <span id="pageInfo">第 1 / 1 页</span>
+          <button id="nextPageBtn" class="page-btn" type="button">下一页</button>
+        </div>
+        <span id="lastUpdated">尚未刷新</span>
+      </div>
+    </section>
+
+    <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
+  </div>
+
+  <script src="js/common.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
+</body>
+</html>

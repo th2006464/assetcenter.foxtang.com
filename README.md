@@ -1,6 +1,6 @@
 # 自动化终端管理平台
 
-部署在 Cloudflare Pages 上的纯静态 IT 资产看板。数据在浏览器端直接从设备 API 读取，由前端完成统计、可视化、搜索、排序、分页和 CSV 导出，没有构建步骤和后端依赖。
+部署在 Cloudflare Pages 上的 IT 资产看板。公开首页复用 Auth Center Console 登录样式，用户手动点击 Google 按钮进入统一申请流程。通过独立 Cloudflare Access 应用认证后，浏览器只访问同源 `/api`，Pages Functions 和 AMS 后端均验证资产中心自己的 Access AUD；前端完成统计、可视化、搜索、排序、分页和 CSV 导出。
 
 - 生产地址：<https://assetcenter.foxtang.com>
 - GitHub 仓库：<https://github.com/th2006464/assetcenter.foxtang.com>
@@ -145,7 +145,7 @@
 接口地址在 `js/common.js` 的 `API_URL` 中：
 
 ```js
-const API_URL = "https://ams.foxtang.com/devices";
+const API_URL = "/api/devices";
 ```
 
 接口需返回 JSON 数组，字段为：`computer_name`、`serial_number`、`windows_user`、`outlook_account`、`manufacturer`、`model`、`os_name`、`forticlient_user`、`forticlient_last_seen`、`report_time`、`script_version`，以及 Agent v1.3.0 新增的 `c_drive_total_gb`、`c_drive_free_gb`（C 盘总容量 / 剩余空间，单位 GB）。
@@ -159,7 +159,8 @@ const API_URL = "https://ams.foxtang.com/devices";
 ## 目录结构
 
 ```
-index.html          设备明细表
+index.html          公开 Google 登录页
+devices.html        设备明细表
 dashboard.html      数据看板
 compare.html        脚本覆盖对比（只上传向日葵表，资产数据自动读接口）
 css/style.css       主题变量、胶囊 UI、表格样式
@@ -187,6 +188,16 @@ python3 -m http.server 4173
 
 ## 部署
 
-Cloudflare Pages 已连接 GitHub 仓库，推送到 `main` 即自动部署。本项目是静态站点，无需 npm、构建命令或输出目录，部署根目录就是仓库根目录。
+Cloudflare Pages 已连接 GitHub 仓库，推送到 `main` 即自动部署。本项目使用 Pages Functions。构建命令为 `npm run build`，输出目录为 `public`；仅复制公开 HTML/CSS/JS/图片，登记配置、后端源码和环境文件不进入静态产物。
 
 详细的交互约定、统计口径和维护清单见 [README.txt](README.txt)。
+
+## 统一授权与后台兼容
+
+`/api` 由本业务专属 Access 邮箱策略保护；普通未授权用户通过主页按钮进入统一申请。`/session` 仅返回布尔登录状态，全部私有响应禁用缓存。`/api/auth/callback` 验证身份后返回 `/devices.html`。
+
+Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。AMS `/devices` 与 `/assets` 校验同一资产中心 AUD，原始 API 地址无法匿名读取。Pages 的 pages.dev、preview 与 rmm 别名不能读取私有 API。
+
+机器 `POST /report` 的路径、`X-Api-Key`、SQL 和响应保持原样；`POST /import-assets` 的独立 `X-Import-Key` 保持原样。网页导入通过登录后的同源代理发送，密钥只存在于该次操作局部变量。AMS 原有 Cron 为空；部署配置保持为空。
+
+验证：`npm test`、`npm run build`、`npx wrangler pages functions build`。AMS 独立部署：`npm run deploy:ams`（`--keep-vars` 保留现存 IMPORT_KEY，现有 API_KEY secret 自动保留），不得把密钥复制进配置或网页。

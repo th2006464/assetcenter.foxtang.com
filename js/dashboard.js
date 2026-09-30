@@ -414,12 +414,13 @@ function initDrilldown(){
        "Windows 11" 等裸关键词 → 普通关键字搜索 */
     const m=query.match(/^(q|filter)=(.*)$/);
     location.href=m
-      ? `index.html?${m[1]}=${encodeURIComponent(m[2])}`
-      : `index.html?q=${encodeURIComponent(query)}`;
+      ? `devices.html?${m[1]}=${encodeURIComponent(m[2])}`
+      : `devices.html?q=${encodeURIComponent(query)}`;
   });
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async () => {
+  if (!await requireSession()) return;
   initTheme();
   initTooltip();
   initDrilldown();

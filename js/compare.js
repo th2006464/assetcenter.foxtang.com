@@ -605,7 +605,8 @@ async function copyNames() {
 }
 
 /* ---------- 事件绑定 ---------- */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  if (!await requireSession()) return;
   initTheme();
   loadApi();                       /* 进页面就自动读接口，不等用户上传 */
 

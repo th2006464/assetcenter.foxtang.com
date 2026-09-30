@@ -1,9 +1,9 @@
-/* Shared runtime helpers for index.html (device table) and dashboard.html (charts).
+/* Shared runtime helpers for devices.html (device table) and dashboard.html (charts).
    Load this file before app.js / dashboard.js. */
 
-const API_URL = "https://ams.foxtang.com/devices";
+const API_URL = "/api/devices";
 /* 资产 CSV 导入接口（独立于 Agent 上报的 /report，鉴权用 X-Import-Key） */
-const IMPORT_API_URL = "https://ams.foxtang.com/import-assets";
+const IMPORT_API_URL = "/api/import-assets";
 const THEME_KEY = "asset-center-theme";
 /* 旧版本把向日葵表缓存在浏览器本地，改由 D1 asset_inventory 统一存储后不再需要 */
 const LEGACY_SUN_STORE_KEY = "asset-center-sunlogin-v1";
@@ -214,7 +214,7 @@ function hasManagementData(list){
 
 /* ---------- 结构化筛选（看板下钻 → 明细表） ----------
    以下筛选项都是「计算出来的概念」（活跃度、VPN 状态、形态、邮箱绑定、磁盘分档、纳管状态），
-   无法用普通关键字搜索命中，所以走独立的 filter 参数：index.html?filter=key:value。
+   无法用普通关键字搜索命中，所以走独立的 filter 参数：devices.html?filter=key:value。
    key/value 与看板图表一一对应，两边共用同一份定义，避免口径漂移。 */
 const FILTER_SPECS={
   manage:{
@@ -431,4 +431,9 @@ function currentThemeIsDark(){
   const attr=document.documentElement.dataset.theme;
   if(attr)return attr==="dark";
   return matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+async function requireSession(){
+  try { const r=await fetch('/session',{cache:'no-store'});if(r.ok&&(await r.json()).authenticated)return true; } catch {}
+  location.replace('/');return false;
 }

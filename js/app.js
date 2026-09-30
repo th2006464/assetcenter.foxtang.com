@@ -653,7 +653,8 @@ function exportCsv(){
   a.href=url;a.download=`asset-center-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async () => {
+  if (!await requireSession()) return;
   initTheme();
   dropLegacySunStore();    /* D1 asset_inventory 才是正式资产源，旧的浏览器缓存作废 */
   migrateHiddenCols();

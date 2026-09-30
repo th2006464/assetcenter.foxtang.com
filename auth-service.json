@@ -1,0 +1,20 @@
+{
+  "service": {
+    "id": "assetcenter",
+    "name": "自动化终端管理平台",
+    "description": "管理自动化终端、资产明细与脚本覆盖。",
+    "category": "IT 管理",
+    "url": "https://assetcenter.foxtang.com/",
+    "loginPath": "/api/auth/callback",
+    "enabled": true,
+    "entryKey": "06fb92fada7e8c0c8c67ae86d672e10bd02f20e0434722db"
+  },
+  "access": {
+    "serviceId": "assetcenter",
+    "applicationId": "9f0833d7-4e9a-4e16-a140-9ee206fe6859",
+    "policyId": "fb85c86e-fd5f-439b-991b-e476d69d7b5e",
+    "hostname": "assetcenter.foxtang.com",
+    "path": "/api",
+    "googleIdpId": "36c1396c-1de4-40fc-9549-c55575e05ef0"
+  }
+}

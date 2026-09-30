@@ -3,154 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>自动化终端管理平台</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=17">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Auth Center Console 统一登录中心，由 CyberSecurity 部门提供。使用 Google 账号，连接你的应用与服务。">
+  <title>Auth Center Console · 登录中心</title>
+  <link rel="icon" href="/cybersecurity.png?v=be4e32e4" type="image/png">
+  <link rel="stylesheet" href="/css/login.css?v=18">
+  <script src="/js/login.js?v=18" defer></script>
 </head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <img class="brand-logo" src="favicon.svg" alt="" width="56" height="56">
-        <div>
-          <div class="eyebrow">IT Operations Automation</div>
-          <h1>自动化终端管理平台</h1>
-        </div>
-      </div>
-      <div class="header-controls">
-        <div class="header-actions-row">
-          <div class="top-actions" aria-label="数据操作">
-            <a class="btn btn-primary" href="dashboard.html" title="打开可视化仪表盘">仪表盘</a>
-            <a class="btn" href="compare.html" title="上传两张表对比，找出没装 auto 脚本的设备">对比工具</a>
-            <button id="refreshBtn" class="btn" type="button">刷新数据</button>
-            <button id="exportBtn" class="btn" type="button">导出 CSV</button>
-            <div class="status-segment"><span id="statusDot" class="status-dot"></span><span id="statusText">准备加载</span></div>
-          </div>
-          <button id="themeToggle" class="theme-toggle-standalone" type="button" aria-label="切换深色主题" aria-pressed="false" title="切换明暗主题">◐</button>
-        </div>
-      </div>
+<body class="login-page">
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Auth Center Console 登录中心首页">
+        <img class="brand-mark" src="/cybersecurity.png?v=be4e32e4" alt="" width="36" height="36">
+        <span>Auth Center Console<span class="brand-divider">/</span><span class="brand-sub">CyberSecurity</span></span>
+      </a>
+      <span class="header-label"><span class="small-dot"></span>统一登录中心</span>
     </header>
-
-    <section class="stats-grid">
-      <article class="stat-card">
-        <span class="stat-label">设备总数</span>
-        <strong id="statTotal">0</strong>
-        <span class="stat-note">当前数据库记录</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">HP 设备</span>
-        <strong id="statHP">0</strong>
-        <span class="stat-note">Manufacturer = HP</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Windows 11</span>
-        <strong id="statWin11">0</strong>
-        <span class="stat-note">按系统名称识别</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">自动化上报</span>
-        <strong id="statAuto">0</strong>
-        <span class="stat-note">通过自动化脚本上传</span>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">24h 内上报</span>
-        <strong id="statRecent24">0</strong>
-        <span class="stat-note">最近 24 小时有更新</span>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="toolbar">
-        <div class="search-wrap">
-          <label for="searchInput">搜索设备</label>
-          <input id="searchInput" type="search" placeholder="SN / 计算机名 / 用户 / VPN 用户 / 邮箱 / 型号" autocomplete="off">
+    <main class="login-layout">
+      <section class="intro" aria-labelledby="intro-title">
+        <div class="eyebrow"><span class="accent-dash"></span> YOUR DIGITAL SPACE</div>
+        <h1 id="intro-title">一次登录。<br><span>连接你的世界。</span></h1>
+        <p class="intro-copy">一个 Google 账号，通往你的所有服务。<br>让每一次开始，都更简单。</p>
+        <div class="identity-art">
+          <div class="logo-halo"><img class="identity-logo" src="/cybersecurity.png?v=be4e32e4" alt="CyberSecurity 部门安全徽章" width="512" height="512" fetchpriority="high"></div>
+          <div class="art-caption"><span>ONE IDENTITY</span><span>CONNECTED SERVICES</span></div>
         </div>
-        <div class="filter-chip-wrap" id="filterChipWrap" hidden>
-          <span class="filter-chip"><span id="filterChipText"></span><button id="clearFilterBtn" class="filter-chip-x" type="button" title="清除筛选" aria-label="清除筛选">×</button></span>
-        </div>
-        <div class="page-size-wrap">
-          <label for="pageSizeSelect">每页显示</label>
-          <div class="page-size-control">
-            <select id="pageSizeSelect"><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="all">全部</option></select>
-            <span>条</span>
-          </div>
-        </div>
-      </div>
-
-      <details class="advanced-filter" id="advancedFilter">
-        <summary>高级筛选</summary>
-        <div class="colbar">
-          <div class="colbar-head">
-            <span class="colbar-title">隐藏列</span>
-            <span class="colbar-hint">勾选即隐藏该列（记住选择，下次打开仍生效）</span>
-          </div>
-          <div class="col-toggles" id="colToggles"></div>
-          <div class="manage-filter-wrap" id="manageFilterWrap" hidden>
-            <span class="colbar-title">纳管状态</span>
-            <div class="manage-toggles">
-              <label class="col-toggle"><input type="checkbox" data-manage="managed"><span>正常纳管</span></label>
-              <label class="col-toggle"><input type="checkbox" data-manage="agent_missing"><span>Agent未上报</span></label>
-              <label class="col-toggle"><input type="checkbox" data-manage="asset_missing"><span>未登记资产</span></label>
-            </div>
-          </div>
-          <div class="colbar-actions">
-            <button id="showAllColsBtn" class="btn btn-sm" type="button">全部显示</button>
-            <button id="showAgentBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看上传</button>
-            <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
-            <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">导入向日葵表</button>
-            <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
-            <span id="sunStatus" class="sun-status" hidden></span>
-          </div>
-        </div>
-      </details>
-
-      <div class="table-wrap">
-        <table id="deviceTable">
-          <thead>
-            <tr>
-              <th data-key="computer_name"><button class="sort-btn" type="button" tabindex="-1"><span>计算机名</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="serial_number"><button class="sort-btn" type="button" tabindex="-1"><span>SN</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="windows_user"><button class="sort-btn" type="button" tabindex="-1"><span>当前用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="forticlient_user"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 用户</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="forticlient_last_seen"><button class="sort-btn" type="button" tabindex="-1"><span>VPN 最后活动</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="outlook_account"><button class="sort-btn" type="button" tabindex="-1"><span>Outlook 邮箱</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="manufacturer"><button class="sort-btn" type="button" tabindex="-1"><span>厂商</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="model"><button class="sort-btn" type="button" tabindex="-1"><span>型号</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="os_name"><button class="sort-btn" type="button" tabindex="-1"><span>操作系统</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="c_drive_free_gb" title="剩余空间 / 总容量（GB），剩余低于 20 GB 会高亮预警"><button class="sort-btn" type="button" tabindex="-1"><span>C盘空间</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="report_time"><button class="sort-btn" type="button" tabindex="-1"><span>最后上报</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="script_version"><button class="sort-btn" type="button" tabindex="-1"><span>脚本版本</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="mgmt_status" title="资产表与 Agent 的匹配结果：正常纳管 / Agent未上报 / 未登记资产"><button class="sort-btn" type="button" tabindex="-1"><span>管理状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_last" title="向日葵「最后在线时间」"><button class="sort-btn" type="button" tabindex="-1"><span>最后在线</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_status" title="来自向日葵设备表的在线状态"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵状态</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_group" title="向日葵分组，如 工厂-东阿 / 上海-总部"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵分组</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_code" title="向日葵识别码"><button class="sort-btn" type="button" tabindex="-1"><span>识别码</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-              <th data-key="sun_note" title="向日葵「备注」列，即匹配用的序列号"><button class="sort-btn" type="button" tabindex="-1"><span>备注</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
-            </tr>
-          </thead>
-          <tbody id="deviceBody">
-            <tr><td colspan="18" class="empty-state">正在加载设备数据…</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="panel-footer">
-        <span id="resultCount">0 台设备</span>
-        <div id="pagination" class="pagination">
-          <button id="prevPageBtn" class="page-btn" type="button">上一页</button>
-          <span id="pageInfo">第 1 / 1 页</span>
-          <button id="nextPageBtn" class="page-btn" type="button">下一页</button>
-        </div>
-        <span id="lastUpdated">尚未刷新</span>
-      </div>
-    </section>
-
-    <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
+      </section>
+      <section class="login-card" aria-labelledby="login-title">
+        <div class="card-topline"><span class="eyebrow">WELCOME BACK</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 4v5c0 5-8 9-8 9S4 17 4 12V7l8-4Z" stroke="currentColor" stroke-width="1.4"/><path d="m8 12 3 3 5-6" stroke="currentColor" stroke-width="1.4"/></svg></div>
+        <h2 id="login-title">登录自动化终端管理平台</h2>
+        <p class="card-subtitle">欢迎回来，从这里继续。</p>
+        <button id="google-login" class="google-button" type="button">
+          <svg width="21" height="21" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24v7.42h11a9.4 9.4 0 0 1-4.08 6.17v5h6.6c3.86-3.56 6.09-8.8 6.09-14.67Z"/><path fill="#34A853" d="M24 44c5.51 0 10.13-1.83 13.52-4.87l-6.6-5c-1.82 1.22-4.15 1.95-6.92 1.95-5.3 0-9.79-3.58-11.4-8.39H5.8v5.18A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.69a12 12 0 0 1 0-7.38v-5.18H5.8a20 20 0 0 0 0 17.74l6.8-5.18Z"/><path fill="#EA4335" d="M24 11.92c3 0 5.68 1.03 7.8 3.06l5.83-5.82C34.11 5.89 29.5 4 24 4A20 20 0 0 0 5.8 15.13l6.8 5.18c1.61-4.81 6.1-8.39 11.4-8.39Z"/></svg>
+          <span>使用 Google 继续</span>
+        </button>
+        <p id="login-status" class="login-status" role="status">使用 Google 账号登录并申请访问。</p>
+        <div class="card-separator"></div>
+        <div class="login-detail"><span class="detail-icon" aria-hidden="true">01</span><div><h3>一个账号，多个服务</h3><p>在已接入的应用之间，轻松切换。</p></div></div>
+        <div class="login-detail"><span class="detail-icon" aria-hidden="true">02</span><div><h3>你的账号，安全连接</h3><p>由 Google 验证身份，按权限访问服务。</p></div></div>
+        <div class="card-footnote"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor"/></svg>Auth Center Console 不会获取或保存你的 Google 密码</div>
+      </section>
+    </main>
+    <footer class="site-footer"><span>© 2026 CyberSecurity 部门</span><span>一个入口 · 连接所有服务</span><span class="footer-domain">assetcenter.foxtang.com </span></footer>
   </div>
-
-  <script src="js/common.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
 </body>
 </html>

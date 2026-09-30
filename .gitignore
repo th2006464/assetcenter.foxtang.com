@@ -2,3 +2,8 @@
 .devices-sample.json
 node_modules/
 .DS_Store
+
+.integration-private/
+public/
+.wrangler/
+.dev.vars*

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const html = fs.readFileSync('index.html', 'utf8');
+const html = fs.readFileSync('devices.html', 'utf8');
 const block = html.match(/<details\b([^>]*)\bid="advancedFilter"([^>]*)>([\s\S]*?)<\/details>/);
 assert.ok(block, '高级筛选应使用原生折叠控件');
 assert.doesNotMatch(block[1] + block[2], /\bopen\b/, '首次打开页面时应收起');

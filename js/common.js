@@ -434,8 +434,8 @@ function currentThemeIsDark(){
 }
 
 async function authenticatedFetch(input, init={}) {
-  const expired=()=>{location.replace('/auth/login');throw new Error('authentication_required');};
-  const confirmExpired=async()=>{try{const r=await fetch('/session',{cache:'no-store',redirect:'manual'});return r.ok&&r.headers.get('content-type')?.includes('application/json')&&(await r.json()).authenticated===false;}catch{return false;}};
+  const expired=()=>{location.replace('/?login=1');throw new Error('authentication_required');};
+  const confirmExpired=async()=>{try{const r=await fetch('/session',{cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(4000)});return r.ok&&r.headers.get('content-type')?.includes('application/json')&&(await r.json()).authenticated===false;}catch{return false;}};
   let response;
   try{response=await fetch(input,{...init,redirect:'manual'});}catch(error){if(init.signal?.aborted)throw error;if(await confirmExpired())return expired();throw error;}
   if(response.type==='opaqueredirect')return expired();
@@ -444,8 +444,8 @@ async function authenticatedFetch(input, init={}) {
 }
 async function requireSession(){
   let session;
-  try{const r=await fetch('/session',{cache:'no-store',redirect:'manual'});if(!r.ok)return true;session=await r.json();}catch{return true;}
+  try{const r=await fetch('/session',{cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(4000)});if(!r.ok)return true;session=await r.json();}catch{return true;}
   if(session.authenticated===true)return true;
-  if(session.authenticated===false){location.replace('/auth/login');return false;}
+  if(session.authenticated===false){location.replace('/?login=1');return false;}
   return true;
 }

@@ -202,4 +202,12 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 
 验证：`npm test`、`npm run build`、`npx wrangler pages functions build`。AMS 独立部署：`npm run deploy:ams`（`--keep-vars` 保留现存 IMPORT_KEY，现有 API_KEY secret 自动保留），不得把密钥复制进配置或网页。
 
-2026-10-01：明细、看板、对比及导入请求遇到认证失效会顶层跳转固定 `/auth/login`，后者仅转向该业务已登记申请入口。Access 重定向通过 manual 模式识别；403、HTML 与网络失败须经 `/session` 确认未登录再跳转，导入密码错误、网络中断及服务故障保留原错误。启动 session 检查不可用时继续加载受服务端保护的 API 并显示其错误。本地模拟验证不代表真实 Google/Access 完整验收。
+2026-10-01：明细、看板、对比及导入请求遇到认证失效会顶层回到固定 `/?login=1` 手动登录页，后者仅转向该业务已登记申请入口。Access 重定向通过 manual 模式识别；401、403、HTML 与网络失败须经 `/session` 确认未登录再跳转，导入密码错误、网络中断及服务故障保留原错误。启动 session 检查不可用时继续加载受服务端保护的 API 并显示其错误。本地模拟验证不代表真实 Google/Access 完整验收。
+
+## 登录页恢复与私有深链（2026-10-01）
+
+匿名访问 `/devices`、`/dashboard`、`/compare` 及对应 `.html` 时，Pages Functions 在返回静态页面之前校验该业务专属 Access JWT；未认证返回 `302 /?login=1`，不会先展示业务页再靠前端跳转。已认证页面响应也禁用缓存，非标准域名的私有页面返回 404。`scripts/build.mjs` 的 `_routes.json` 必须覆盖这些页面，不能仅保护 API。
+
+已打开页面遇到 Access 重定向或经 `/session` 确认身份失效后，回到同一手动登录页。`login=1` 禁用首页自动进入设备页，避免残留 JWT 与 Access 拒绝相互循环；只有点击“使用 Google 继续”才触发登记的统一申请入口。`/auth/login` 保留手动动作兼容路由。身份探测最多等待 4 秒；网络中断、探测失败及业务错误不会自动当作匿名，导入密码错误保留原提示。
+
+本地验证：`npm test`（含私有深链服务器拦截及认证恢复）、`npm run build`、`npx wrangler pages functions build`、`git diff --check`。部署使用 `npm run deploy`，不需要数据库迁移或 Access 策略变更。真实 Google 登录、已授权与拒绝账号的完整 Access 验收仍需真实账号；本地故障模拟与匿名 HTTP 检查不等同此验收。

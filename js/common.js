@@ -433,7 +433,19 @@ function currentThemeIsDark(){
   return matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+async function authenticatedFetch(input, init={}) {
+  const expired=()=>{location.replace('/auth/login');throw new Error('authentication_required');};
+  const confirmExpired=async()=>{try{const r=await fetch('/session',{cache:'no-store',redirect:'manual'});return r.ok&&r.headers.get('content-type')?.includes('application/json')&&(await r.json()).authenticated===false;}catch{return false;}};
+  let response;
+  try{response=await fetch(input,{...init,redirect:'manual'});}catch(error){if(init.signal?.aborted)throw error;if(await confirmExpired())return expired();throw error;}
+  if(response.status===401||response.type==='opaqueredirect')return expired();
+  if((response.status===403||response.headers.get('content-type')?.includes('text/html'))&&await confirmExpired())return expired();
+  return response;
+}
 async function requireSession(){
-  try { const r=await fetch('/session',{cache:'no-store'});if(r.ok&&(await r.json()).authenticated)return true; } catch {}
-  location.replace('/');return false;
+  let session;
+  try{const r=await fetch('/session',{cache:'no-store',redirect:'manual'});if(!r.ok)return true;session=await r.json();}catch{return true;}
+  if(session.authenticated===true)return true;
+  if(session.authenticated===false){location.replace('/auth/login');return false;}
+  return true;
 }

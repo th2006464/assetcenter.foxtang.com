@@ -360,7 +360,7 @@ function renderError(message){
 async function loadDevices(){
   setStatus("正在读取数据");
   try{
-    const res=await fetch(API_URL,{cache:"no-store"});
+    const res=await authenticatedFetch(API_URL,{cache:"no-store"});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");

@@ -201,3 +201,5 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 机器 `POST /report` 的路径、`X-Api-Key`、SQL 和响应保持原样；`POST /import-assets` 的独立 `X-Import-Key` 保持原样。网页导入通过登录后的同源代理发送，密钥只存在于该次操作局部变量。AMS 原有 Cron 为空；部署配置保持为空。
 
 验证：`npm test`、`npm run build`、`npx wrangler pages functions build`。AMS 独立部署：`npm run deploy:ams`（`--keep-vars` 保留现存 IMPORT_KEY，现有 API_KEY secret 自动保留），不得把密钥复制进配置或网页。
+
+2026-10-01：明细、看板、对比及导入请求遇到认证失效会顶层跳转固定 `/auth/login`，后者仅转向该业务已登记申请入口。Access 重定向通过 manual 模式识别；403、HTML 与网络失败须经 `/session` 确认未登录再跳转，导入密码错误、网络中断及服务故障保留原错误。启动 session 检查不可用时继续加载受服务端保护的 API 并显示其错误。本地模拟验证不代表真实 Google/Access 完整验收。

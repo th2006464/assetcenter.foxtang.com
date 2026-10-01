@@ -425,7 +425,7 @@ async function postImport(records,total,skippedCount,importKey){
   if(btn){btn.disabled=true;btn.classList.add("is-busy")}
   setSunStatus(`正在导入资产数据…（${records.length} 条）`);
   try{
-    const res=await fetch(IMPORT_API_URL,{
+    const res=await authenticatedFetch(IMPORT_API_URL,{
       method:"POST",
       headers:{"Content-Type":"application/json","X-Import-Key":importKey},
       body:JSON.stringify({devices:records})
@@ -563,7 +563,7 @@ function render(){
 async function loadDevices(){
   setStatus("正在读取数据");
   try{
-    const res=await fetch(API_URL,{cache:"no-store"});
+    const res=await authenticatedFetch(API_URL,{cache:"no-store"});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");

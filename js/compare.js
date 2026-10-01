@@ -136,7 +136,7 @@ function setApiStatus(text, cls) {
 async function loadApi() {
   setApiStatus("正在读取…", "");
   try {
-    const res = await fetch(API_URL, { cache: "no-store" });
+    const res = await authenticatedFetch(API_URL, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
     if (!Array.isArray(data)) throw new Error("接口返回格式不是数组");

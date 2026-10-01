@@ -2,7 +2,10 @@ import {accessToken,verifyAccess} from '../backend/access.js';
 const privatePages=new Set(['/devices','/devices.html','/dashboard','/dashboard.html','/compare','/compare.html']);
 export async function onRequest({request,env,next}) {
   const url=new URL(request.url);
-  if(!privatePages.has(url.pathname.replace(/\/$/,'')))return next();
+  if(!privatePages.has(url.pathname.replace(/\/$/,''))){
+    if(/^\/(devices|dashboard|compare)\//.test(url.pathname))return new Response('Not Found',{status:404,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    return next();
+  }
   const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
   if(url.hostname!=='assetcenter.foxtang.com')return new Response('Not Found',{status:404,headers});
   if(!['GET','HEAD'].includes(request.method))return new Response('Method Not Allowed',{status:405,headers});

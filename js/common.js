@@ -438,8 +438,8 @@ async function authenticatedFetch(input, init={}) {
   const confirmExpired=async()=>{try{const r=await fetch('/session',{cache:'no-store',redirect:'manual'});return r.ok&&r.headers.get('content-type')?.includes('application/json')&&(await r.json()).authenticated===false;}catch{return false;}};
   let response;
   try{response=await fetch(input,{...init,redirect:'manual'});}catch(error){if(init.signal?.aborted)throw error;if(await confirmExpired())return expired();throw error;}
-  if(response.status===401||response.type==='opaqueredirect')return expired();
-  if((response.status===403||response.headers.get('content-type')?.includes('text/html'))&&await confirmExpired())return expired();
+  if(response.type==='opaqueredirect')return expired();
+  if((response.status===401||response.status===403||response.headers.get('content-type')?.includes('text/html'))&&await confirmExpired())return expired();
   return response;
 }
 async function requireSession(){

@@ -211,3 +211,5 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 已打开页面遇到 Access 重定向或经 `/session` 确认身份失效后，回到同一手动登录页。`login=1` 禁用首页自动进入设备页，避免残留 JWT 与 Access 拒绝相互循环；只有点击“使用 Google 继续”才触发登记的统一申请入口。`/auth/login` 保留手动动作兼容路由。身份探测最多等待 4 秒；网络中断、探测失败及业务错误不会自动当作匿名，导入密码错误保留原提示。
 
 本地验证：`npm test`（含私有深链服务器拦截及认证恢复）、`npm run build`、`npx wrangler pages functions build`、`git diff --check`。部署使用 `npm run deploy`，不需要数据库迁移或 Access 策略变更。真实 Google 登录、已授权与拒绝账号的完整 Access 验收仍需真实账号；本地故障模拟与匿名 HTTP 检查不等同此验收。
+
+同一页面内同时发生多个认证失败时，首页恢复只执行一次；每个失败请求仍结束为错误，避免重复顶层导航。回归同时释放多个失效请求并验证仅一次恢复，另检查尾斜杠深链及生成的 Pages 路由覆盖；未知 `/devices/foo` 由静态路由返回 404，不映射设备页。

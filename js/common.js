@@ -433,8 +433,10 @@ function currentThemeIsDark(){
   return matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+let restoringLogin=false;
+function restoreManualLogin(){if(!restoringLogin){restoringLogin=true;location.replace('/?login=1');}}
 async function authenticatedFetch(input, init={}) {
-  const expired=()=>{location.replace('/?login=1');throw new Error('authentication_required');};
+  const expired=()=>{restoreManualLogin();throw new Error('authentication_required');};
   const confirmExpired=async()=>{try{const r=await fetch('/session',{cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(4000)});return r.ok&&r.headers.get('content-type')?.includes('application/json')&&(await r.json()).authenticated===false;}catch{return false;}};
   let response;
   try{response=await fetch(input,{...init,redirect:'manual'});}catch(error){if(init.signal?.aborted)throw error;if(await confirmExpired())return expired();throw error;}
@@ -446,6 +448,6 @@ async function requireSession(){
   let session;
   try{const r=await fetch('/session',{cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(4000)});if(!r.ok)return true;session=await r.json();}catch{return true;}
   if(session.authenticated===true)return true;
-  if(session.authenticated===false){location.replace('/?login=1');return false;}
+  if(session.authenticated===false){restoreManualLogin();return false;}
   return true;
 }

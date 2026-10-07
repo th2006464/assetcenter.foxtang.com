@@ -213,3 +213,7 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 本地验证：`npm test`（含私有深链服务器拦截及认证恢复）、`npm run build`、`npx wrangler pages functions build`、`git diff --check`。部署使用 `npm run deploy`，不需要数据库迁移或 Access 策略变更。真实 Google 登录、已授权与拒绝账号的完整 Access 验收仍需真实账号；本地故障模拟与匿名 HTTP 检查不等同此验收。
 
 同一页面内同时发生多个认证失败时，首页恢复只执行一次；每个失败请求仍结束为错误，避免重复顶层导航。回归同时释放多个失效请求并验证仅一次恢复，另检查尾斜杠深链及生成的 Pages 路由覆盖；未知 `/devices/foo` 由服务端明确返回 404，不映射设备页。
+
+## 2026-10-07 登录徽章压缩
+
+登录页与 favicon 使用原尺寸 440 × 440 的 cybersecurity-440-q90.webp（WebP quality 90 / method 6），保留原 PNG 资源。登录样式、手动登录与认证恢复行为保持不变。本地测试 20 项通过，并验证构建资源、服务器路由及桌面/390px 明暗主题；真实 Google/Access 账号验收单独进行。

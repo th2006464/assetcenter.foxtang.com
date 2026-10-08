@@ -13,7 +13,7 @@ const COLS_MIGRATION_KEY = "asset-center-hidden-cols-migrated-v3";
 /* 每列最小宽度：隐藏列后表格整体收窄，横向滚动条也随之变短 */
 const COL_MIN_WIDTH = {
   computer_name:170,serial_number:150,windows_user:140,forticlient_user:130,
-  forticlient_last_seen:150,outlook_account:200,manufacturer:100,model:210,
+  forticlient_version:135,forticlient_last_seen:150,outlook_account:200,manufacturer:100,model:210,
   os_name:180,c_drive_free_gb:130,report_time:150,script_version:120,
   sun_last:150,sun_group:130,sun_note:150
 };
@@ -467,7 +467,7 @@ function setSourceFilter(source){
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   /* 资产表字段也参与搜索：备注 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
-  const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
+  const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_version","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
     "sun_note","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
   let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
@@ -544,6 +544,7 @@ function render(){
       <td class="mono">${escapeHtml(displayValue(d.serial_number))}</td>
       <td>${escapeHtml(displayValue(d.windows_user))}</td>
       <td class="mono"${vpnFull?` title="${escapeHtml(vpnFull)}"`:""}>${escapeHtml(displayVpnUser(d.forticlient_user))}</td>
+      <td class="mono">${escapeHtml(displayValue(d.forticlient_version))}</td>
       <td>${vpnTime?`${escapeHtml(vpnAgo.text)}<br><span class="muted">${escapeHtml(displaySourceTime(vpnTime))}</span>`:'<span class="muted">—</span>'}</td>
       <td>${escapeHtml(displayValue(d.outlook_account))}</td>
       <td>${safe(d.manufacturer).trim()?`<span class="badge">${escapeHtml(d.manufacturer)}</span>`:'<span class="muted">—</span>'}</td>
@@ -587,7 +588,7 @@ function exportCsv(){
   const rows=getFilteredSorted();
   const headers=[
     ["computer_name","ComputerName"],["serial_number","SerialNumber"],["windows_user","WindowsUser"],
-    ["forticlient_user","FortiClientUser"],["forticlient_last_seen","FortiClientLastSeen"],["outlook_account","OutlookAccount"],
+    ["forticlient_user","FortiClientUser"],["forticlient_version","FortiClientVersion"],["forticlient_last_seen","FortiClientLastSeen"],["outlook_account","OutlookAccount"],
     ["manufacturer","Manufacturer"],["model","Model"],["os_name","OSName"],["report_time","ReportTime"],["script_version","ScriptVersion"],
     ["c_drive_total_gb","C Drive Total GB"],["c_drive_free_gb","C Drive Free GB"]
   ];

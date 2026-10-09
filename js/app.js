@@ -535,7 +535,8 @@ function render(){
 
   if(!visibleRows.length){body.innerHTML=`<tr><td colspan="${visibleColCount()}" class="empty-state">没有匹配的设备</td></tr>`;applyColVisibility();return}
   body.innerHTML=visibleRows.map(d=>{
-    const report=timeAgo(d.report_time);
+    const validReportTime=d.report_time!=null&&String(d.report_time).trim()!==""&&String(d.report_time).trim()!=="0"&&parseDate(d.report_time)?.getFullYear()>1970;
+     const report=validReportTime?timeAgo(d.report_time):{text:"—",cls:"muted"};
     const vpnTime=safe(d.forticlient_last_seen).trim();
     const vpnAgo=vpnTime?timeAgo(vpnTime):null;
     const vpnFull=safe(d.forticlient_user).trim();
@@ -551,7 +552,7 @@ function render(){
       <td>${escapeHtml(displayValue(d.model))}</td>
       <td>${escapeHtml(displayValue(d.os_name))}</td>
       <td>${displayDrive(d.c_drive_free_gb,d.c_drive_total_gb)}</td>
-      <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(formatBeijingTime(d.report_time))}</span></td>
+      <td><span class="${report.cls}">${escapeHtml(report.text)}</span><br><span class="muted">${escapeHtml(validReportTime?formatBeijingTime(d.report_time):"")}</span></td>
       <td class="mono">${escapeHtml(displayValue(d.script_version))}</td>
       <td>${escapeHtml(displayValue(d.sun_last))}</td>
       <td>${escapeHtml(displayValue(d.sun_group))}</td>

@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=25">
+  <link rel="stylesheet" href="css/style.css?v=24">
 </head>
 <body>
   <div class="app-shell">
@@ -93,19 +93,17 @@
             <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
             <button id="showUnreportedBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false" title="仅查看向日葵资产中存在、Agent 未上报的设备">未上报设备</button>
             <button id="showDuplicateNamesBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false" title="按合并后的设备列表统计，显示计算机名重复的记录">仅看重名设备</button>
-            <button id="importSunBtn" class="btn btn-sm btn-primary" hidden type="button" title="上传向日葵设备表，按「备注」列匹配序列号">📥 导入向日葵表</button>
+            <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">📥 导入向日葵表</button>
             <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
             <span id="sunStatus" class="sun-status" hidden></span>
           </div>
         </div>
       </details>
 
-      <div style="display:flex;justify-content:flex-end;margin:10px 0"><button id="deleteSelectedBtn" class="btn btn-sm" type="button" hidden disabled>删除选中设备</button></div>
       <div class="table-wrap">
         <table id="deviceTable">
           <thead>
             <tr>
-              <th id="adminSelectHead" hidden>选择</th>
               <th data-key="computer_name"><button class="sort-btn" type="button" tabindex="-1"><span>计算机名</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="asset_device_name"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵设备名称</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="serial_number"><button class="sort-btn" type="button" tabindex="-1"><span>SN</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
@@ -146,6 +144,6 @@
   </div>
 
   <script src="js/common.js?v=29"></script>
-  <script src="js/app.js?v=36"></script>
+  <script src="js/app.js?v=34"></script>
 </body>
 </html>

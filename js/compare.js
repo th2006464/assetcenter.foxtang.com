@@ -2,9 +2,9 @@
    依赖 js/common.js（$ / escapeHtml / safe / isAutoReport / initTheme）。 */
 
 const VERDICT = {
-  ok:      { text: "已装 auto",   cls: "ok" },
+  ok:      { text: "已安装／已获取",   cls: "ok" },
   missing: { text: "从未上报",    cls: "missing" },
-  nonauto: { text: "未装 auto",   cls: "nonauto" }
+  nonauto: { text: "未获取脚本",   cls: "nonauto" }
 };
 /* 排序时的优先级：越需要跟进的排越前 */
 const VERDICT_RANK = { missing: 0, nonauto: 1, ok: 2 };
@@ -271,7 +271,7 @@ function tryFinalize() {
       state.tab = c.now > 0 ? "now" : "fail";
       showDelta();
     } else {
-      /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未装 auto」避免空白 */
+      /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未获取脚本」避免空白 */
       if (state.tab === "now" && c.now === 0) state.tab = "fail";
     }
 
@@ -303,7 +303,7 @@ function showDelta() {
     ? `本次已转达标 ${d.fixed.length} 台：<b>${escapeHtml(d.fixed.join("、"))}</b>。`
     : "这次没有新装上的设备（可能还没上报，稍等几分钟再刷新）。";
   showMsg(
-    `已重新读取资产数据 —— ${fixedText}还剩 <b>${d.remain}</b> 台未装 auto` +
+    `已重新读取资产数据 —— ${fixedText}还剩 <b>${d.remain}</b> 台未获取脚本` +
     `（其中在线 <b>${d.remainNow}</b> 台，现在就能继续推）。`,
     d.fixed.length ? "ok" : "info"
   );
@@ -340,6 +340,13 @@ function resetAll(){
   $("resultPanel").hidden = true;
   hideMsg();
   dumpDebug("reset");
+}
+
+/* 只要 Agent 上报了有效脚本版本，就视为已安装/已获取。
+   空白、占位符不是有效版本；不再限定版本号必须包含 auto。 */
+function hasScriptVersion(v){
+  const s=safe(v).trim();
+  return !!s&&!["-","—","#N/A","N/A","NULL","UNDEFINED","NONE"].includes(s.toUpperCase());
 }
 
 /* ---------- 比对 ---------- */
@@ -393,17 +400,17 @@ function compare() {
 
     let verdict, script;
     if (useStdCol) {
-      script = s.autoCfg || "";
-      verdict = isAutoReport(script) ? "ok" : "nonauto";
-      /* 资产表也有这台机时顺带交叉核对，不一致计数（仍以向日葵为准） */
+      /* 标准表的配置列仅作辅助：Agent 已有有效版本时绝不能判成未安装。 */
+      script = hit && hasScriptVersion(hit.script) ? hit.script : (s.autoCfg || "");
+      verdict = hasScriptVersion(script) ? "ok" : (hit ? "nonauto" : "missing");
       if (hit) {
         crossChecked++;
-        const acVerdict = isAutoReport(hit.script) ? "ok" : "nonauto";
+        const acVerdict = hasScriptVersion(hit.script) ? "ok" : "nonauto";
         if (acVerdict !== verdict) disagree++;
       }
     } else if (hit) {
       script = hit.script;
-      verdict = isAutoReport(script) ? "ok" : "nonauto";
+      verdict = hasScriptVersion(script) ? "ok" : "nonauto";
     } else {
       script = "";
       verdict = "missing";
@@ -581,7 +588,7 @@ function exportCsv() {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob), a = document.createElement("a");
   a.href = url;
-  a.download = `未装auto脚本-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `未获取脚本-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 

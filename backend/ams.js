@@ -231,21 +231,6 @@ export default {
 
         let imported = 0;
         let skipped = 0;
-        let storedWithoutSn = 0;
-
-        /* 无 SN 记录独立存储，不占用硬件 SN 主键，也不进入 GET /devices。
-           该表只在实际导入无 SN 记录时创建，既有数据无需迁移。 */
-        const noSnRecords = body.devices.filter(d => !String(d.serial_number || "").trim());
-        if (noSnRecords.length) {
-          await env.DB.prepare(`
-            CREATE TABLE IF NOT EXISTS asset_inventory_no_sn (
-              record_key TEXT PRIMARY KEY,
-              payload TEXT NOT NULL,
-              import_time TEXT NOT NULL
-            )
-          `).run();
-        }
-
         for (const device of body.devices) {
 
           const serialNumber =
@@ -253,37 +238,9 @@ export default {
               .trim()
               .toUpperCase();
 
-          // 无 SN 单独入库，不伪造硬件序列号，不参加设备列表或 Agent 匹配。
+          // 未初始化设备无 SN：跳过，不写入数据库。
           if (!serialNumber) {
-            const payload = JSON.stringify({
-              device_name: device.device_name || "",
-              asset_note: device.asset_note || "",
-              status: device.status || "",
-              asset_group: device.asset_group || "",
-              sunlogin_code: device.sunlogin_code || "",
-              sunlogin_version: device.sunlogin_version || "",
-              deployment_source: device.deployment_source || "",
-              system_version: device.system_version || "",
-              mac_address: device.mac_address || "",
-              internal_ip: device.internal_ip || "",
-              last_login_ip: device.last_login_ip || "",
-              last_online_time: device.last_online_time || "",
-              computer_name: device.computer_name || "",
-              processor: device.processor || "",
-              memory: device.memory || ""
-            });
-            const code = String(device.sunlogin_code || "").trim();
-            const identity = code ? "sunlogin:" + code : "row:" + payload;
-            const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(identity));
-            const key = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
-            await env.DB.prepare(`
-              INSERT INTO asset_inventory_no_sn (record_key, payload, import_time)
-              VALUES (?, ?, ?)
-              ON CONFLICT(record_key) DO UPDATE SET
-                payload = excluded.payload,
-                import_time = excluded.import_time
-            `).bind(key, payload, new Date().toISOString()).run();
-            storedWithoutSn++;
+            skipped++;
             continue;
           }
 
@@ -376,7 +333,6 @@ export default {
             success: true,
             received: body.devices.length,
             imported: imported,
-            stored_without_sn: storedWithoutSn,
             skipped: skipped
           }),
           {

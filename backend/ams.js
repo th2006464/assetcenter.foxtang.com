@@ -1,4 +1,9 @@
 import { verifyAccess, accessToken } from './access.js';
+const ADMIN_EMAIL = 'th2006464@gmail.com';
+const adminUser = async (request, env) => {
+  const user = await verifyAccess(accessToken(request), env);
+  return user?.email?.trim().toLowerCase() === ADMIN_EMAIL ? user : null;
+};
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -189,24 +194,9 @@ export default {
         });
       }
 
-      // 独立的资产导入密码
-      if (
-        !env.IMPORT_KEY ||
-        request.headers.get("X-Import-Key") !== env.IMPORT_KEY
-      ) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Unauthorized"
-          }),
-          {
-            status: 401,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json"
-            }
-          }
-        );
+      // 管理员通过已验证的 Cloudflare Access JWT 授权，不接受浏览器密码或邮箱声明。
+      if (!await adminUser(request, env)) {
+        return Response.json({success:false,error:"Administrator access required"}, {status:403,headers:corsHeaders});
       }
 
       try {
@@ -362,6 +352,46 @@ export default {
       }
     }
 
+
+    // 管理员精确删除。只按 SN，不按计算机名；含资产前缀的旧 SN 必须唯一匹配。
+    if (url.pathname === "/delete-device") {
+      if (request.method !== "POST") return new Response("Method Not Allowed",{status:405,headers:corsHeaders});
+      const admin = await adminUser(request,env);
+      if (!admin) return Response.json({error:"Administrator access required"},{status:403,headers:corsHeaders});
+      try {
+        const body = await request.json();
+        const sn = String(body.serial_number || "").trim().toUpperCase();
+        const scope = body.scope;
+        if (!sn || sn.length > 256 || !["agent","asset","both"].includes(scope))
+          return Response.json({error:"Invalid serial number or deletion scope"},{status:400,headers:corsHeaders});
+        const candidates = [];
+        for (const table of (scope === "both" ? ["devices","asset_inventory"] : [scope === "agent" ? "devices" : "asset_inventory"])) {
+          const rows = await env.DB.prepare(`SELECT serial_number FROM ${table} WHERE UPPER(TRIM(serial_number)) = ?`).bind(sn).all();
+          let matches = rows.results || [];
+          // 向日葵历史备注可能是 3101466-SN；仅唯一命中才允许删除。
+          if (table === "asset_inventory" && matches.length === 0) {
+            const old = await env.DB.prepare(`SELECT serial_number FROM asset_inventory WHERE UPPER(TRIM(serial_number)) LIKE ?`).bind("%-" + sn).all();
+            matches = (old.results || []).filter(x => String(x.serial_number).trim().toUpperCase().endsWith("-" + sn));
+          }
+          if (matches.length > 1) return Response.json({error:"Multiple matching records; deletion cancelled"},{status:409,headers:corsHeaders});
+          if (matches.length === 0) return Response.json({error:`No matching ${table} record; nothing deleted`},{status:404,headers:corsHeaders});
+          candidates.push({table,serial:matches[0].serial_number});
+        }
+        // 审计与删除在同一个 D1 batch 事务中执行，失败则不留下部分删除。
+        await env.DB.prepare(`CREATE TABLE IF NOT EXISTS asset_admin_audit (
+          id TEXT PRIMARY KEY, action TEXT NOT NULL, actor_email TEXT NOT NULL,
+          serial_number TEXT NOT NULL, scope TEXT NOT NULL, details TEXT, created_at TEXT NOT NULL
+        )`).run();
+        const statements = candidates.map(x => env.DB.prepare(`DELETE FROM ${x.table} WHERE serial_number = ?`).bind(x.serial));
+        statements.push(env.DB.prepare(`INSERT INTO asset_admin_audit
+          (id,action,actor_email,serial_number,scope,details,created_at)
+          VALUES (?,?,?,?,?,?,?)`).bind(crypto.randomUUID(),"delete",admin.email,sn,scope,JSON.stringify(candidates),new Date().toISOString()));
+        await env.DB.batch(statements);
+        return Response.json({success:true,deleted:candidates},{headers:corsHeaders});
+      } catch(error) {
+        return Response.json({error:"Deletion failed",detail:String(error?.message || error)},{status:500,headers:corsHeaders});
+      }
+    }
 
     // =====================================
     // GET /devices

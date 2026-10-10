@@ -1,6 +1,4 @@
 let allDevices = [];
-let isAdmin = false;
-let selectedDeviceSn = "";
 let sortKey = "report_time";
 let sortAsc = false;
 let pageSize = 20;
@@ -357,12 +355,9 @@ function openModal(opts){
         +`<input id="modalInput" class="modal-input" type="password" autocomplete="off" spellcheck="false"`
         +` placeholder="${escapeHtml(opts.input.placeholder||"")}"></label>`
       : "";
-    const selection=opts&&opts.select
-      ? `<label class="modal-field"><span class="modal-field-label">${escapeHtml(opts.select.label||"")}</span><select id="modalSelect" class="modal-input"><option value="">请选择</option>${opts.select.options.map(([v,t])=>`<option value="${escapeHtml(v)}">${escapeHtml(t)}</option>`).join("")}</select></label>`
-      : "";
     mask.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">`
       +`<h2 class="modal-title">${escapeHtml(title)}</h2>`
-      +`<div class="modal-body">${safe(opts&&opts.body)}</div>${field}${selection}`
+      +`<div class="modal-body">${safe(opts&&opts.body)}</div>${field}`
       +`<div class="modal-actions">`
       +`<button class="btn btn-sm" type="button" data-act="cancel">${escapeHtml(opts&&opts.cancelText||"取消")}</button>`
       +`<button class="btn btn-sm btn-primary" type="button" data-act="ok">${escapeHtml(opts&&opts.confirmText||"确定")}</button>`
@@ -372,8 +367,7 @@ function openModal(opts){
     const finish=value=>{closeModal();resolve(value)};
     const submit=()=>{
       const el=$("modalInput");
-      const select=$("modalSelect");
-      finish(el?(el.value.trim()||null):select?(select.value||null):true);
+      finish(el?(el.value.trim()||null):true);
     };
 
     mask.addEventListener("click",e=>{
@@ -395,14 +389,14 @@ function openModal(opts){
 /* Worker 返回的具体错误要原样展示，不能只说「上传失败」 */
 function importErrorDetail(status,json,text){
   const body=json?(safe(json.error)||safe(json.message)):safe(text).trim();
-  if(status===401||status===403)return body?`无管理员权限 · ${body}`:"无管理员权限";
+  if(status===401||status===403)return body?`导入密码错误 · ${body}`:"导入密码错误";
   if(status===400)return body||"请求格式不正确";
   if(status===413)return body||"数据量过大，请拆分后分批导入";
   if(status>=500)return body?`服务器错误 · ${body}`:"数据库写入失败";
   return body||"未知错误";
 }
 
-/* 管理员使用已验证的 Access 身份导入，不在浏览器输入或存储 Import Key。 */
+/* 选择 CSV → 解析 → 确认条数 → 输入 Import Key → POST /import-assets → 刷新列表 */
 async function importSunFile(file){
   if(!file||importBusy)return;
   showSunError("正在解析…");
@@ -429,12 +423,21 @@ async function importSunFile(file){
   const confirmed=await openModal({title:"导入向日葵表",body,confirmText:"确认导入",cancelText:"取消"});
   if(!confirmed){updateSunStatus();return}
 
-  await postImport(records,total,skipped.length);
+  /* Import Key 只存在于这个局部变量里：不写 localStorage / sessionStorage / Cookie，
+     请求结束即随变量回收。 */
+  const importKey=await openModal({
+    title:"资产导入密码",
+    body:`<p class="modal-hint">密码仅用于本次上传，不会保存在浏览器或源码中。</p>`,
+    input:{label:"Import Key",placeholder:"请输入资产导入密码"},
+    confirmText:"上传",
+    cancelText:"取消"
+  });
+  if(!importKey){updateSunStatus();return}
 
+  await postImport(records,total,skipped.length,importKey);
 }
 
-async function postImport(records,total,skippedCount){
-  if(!isAdmin){showSunError("仅管理员可以导入");return;}
+async function postImport(records,total,skippedCount,importKey){
   const btn=$("importSunBtn");
   importBusy=true;
   if(btn){btn.disabled=true;btn.classList.add("is-busy")}
@@ -442,7 +445,7 @@ async function postImport(records,total,skippedCount){
   try{
     const res=await authenticatedFetch(IMPORT_API_URL,{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"application/json","X-Import-Key":importKey},
       body:JSON.stringify({devices:records})
     });
     const text=await res.text();
@@ -461,11 +464,11 @@ async function postImport(records,total,skippedCount){
   }catch(e){
     console.error(e);
     showSunError("导入失败 · "+safe(e&&e.message||String(e))
-      +"（请检查网络及管理员权限）");
+      +"（若提示 Failed to fetch，通常是 Worker 的 CORS 未放行 X-Import-Key）");
   }finally{
     importBusy=false;
     if(btn){btn.disabled=false;btn.classList.remove("is-busy")}
-
+    importKey="";
   }
 }
 
@@ -571,7 +574,6 @@ function render(){
     const vpnAgo=vpnTime?timeAgo(vpnTime):null;
     const vpnFull=safe(d.forticlient_user).trim();
     return `<tr>
-      ${isAdmin?`<td><input type="radio" name="adminDeviceSelect" value="${escapeHtml(safe(d.serial_number))}" aria-label="选择设备 ${escapeHtml(safe(d.computer_name))}" ${selectedDeviceSn===safe(d.serial_number)?"checked":""}></td>`:""}
       <td><strong>${escapeHtml(displayValue(d.computer_name))}</strong></td>
       <td>${escapeHtml(displayValue(d.asset_device_name))}</td>
       <td class="mono">${escapeHtml(displayValue(d.serial_number))}</td>
@@ -592,8 +594,6 @@ function render(){
     </tr>`;
   }).join("");
   applyColVisibility();
-  if(isAdmin){body.querySelectorAll('input[name="adminDeviceSelect"]').forEach(input=>input.addEventListener("change",()=>{selectedDeviceSn=input.value;updateDeleteButton()}));}
-  updateDeleteButton();
 }
 
 async function loadDevices(){
@@ -647,47 +647,9 @@ function exportCsv(){
   a.href=url;a.download=`asset-center-${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
-function updateDeleteButton(){
-  const btn=$("deleteSelectedBtn");
-  if(btn)btn.disabled=!isAdmin||!selectedDeviceSn;
-}
-async function initAdminRole(){
-  try{
-    const res=await authenticatedFetch("/session",{cache:"no-store"});
-    if(res.ok){const session=await res.json();isAdmin=session.authenticated===true&&session.isAdmin===true;}
-  }catch(e){console.warn("Admin role unavailable",e)}
-  for(const id of ["importSunBtn","deleteSelectedBtn","adminSelectHead"]){const el=$(id);if(el)el.hidden=!isAdmin;}
-  updateDeleteButton();
-}
-async function deleteSelectedDevice(){
-  if(!isAdmin||!selectedDeviceSn)return;
-  const sn=selectedDeviceSn;
-  const row=allDevices.find(d=>safe(d.serial_number)===sn);
-  if(!row)return;
-  const scope=await openModal({title:"选择删除来源",
-    body:`<p>计算机名：<b>${escapeHtml(displayValue(row.computer_name))}</b></p><p>SN：<b>${escapeHtml(sn)}</b></p><p class="modal-hint">请选择要删除的数据来源，默认不选择。</p>`,
-    select:{label:"删除来源",options:[["agent","仅 Agent"],["asset","仅向日葵"],["both","Agent 和向日葵"]] },confirmText:"下一步"});
-  if(!scope)return;
-  const scopeName={agent:"Agent",asset:"向日葵",both:"Agent 和向日葵"}[scope];
-  if(!scopeName)return;
-  const ok=await openModal({title:"确认删除设备",body:`<p>即将删除 <b>${escapeHtml(scopeName)}</b> 中 SN 为 <b>${escapeHtml(sn)}</b> 的记录。</p><p class="modal-hint">删除后可能无法恢复；Agent 仍在运行时可能再次上报。</p>`,confirmText:"确认删除"});
-  if(!ok)return;
-  const btn=$("deleteSelectedBtn");if(btn)btn.disabled=true;
-  try{
-    const res=await authenticatedFetch("/api/delete-device",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({serial_number:sn,scope})});
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-    selectedDeviceSn="";
-    await loadDevices();
-    setSunStatus(`<b>删除成功</b> · ${escapeHtml(sn)} · ${escapeHtml(scopeName)}`);
-  }catch(e){showSunError("删除失败："+safe(e.message||e))}
-  finally{updateDeleteButton()}
-}
-
 document.addEventListener("DOMContentLoaded", async () => {
   if (!await requireSession()) return;
   initTheme();
-  await initAdminRole();
   dropLegacySunStore();    /* D1 asset_inventory 才是正式资产源，旧的浏览器缓存作废 */
   migrateHiddenCols();
   initDefaultHiddenCols();
@@ -724,8 +686,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentPage=1;
     render();
   });
-  const deleteBtn=$("deleteSelectedBtn");
-  if(deleteBtn)deleteBtn.addEventListener("click",deleteSelectedDevice);
   const sunInput=$("sunFileInput");
   const importBtn=$("importSunBtn");
   if(importBtn&&sunInput){

@@ -32,14 +32,14 @@
 
 ```
 选择 CSV → parseSunlogin()（表头自动定位，含「备注」列）
-        → toImportRecords()（备注末段 = serial_number，TRIM + UPPERCASE，空 SN 跳过）
+        → toImportRecords()（备注末段 = serial_number；空 SN 保留并提交后台独立存储）
         → 确认条数弹窗 → Import Key 弹窗
         → POST https://ams.foxtang.com/import-assets  →  D1 asset_inventory
         → 自动 reload GET /devices，列表立刻反映 Agent ∪ Asset 并集
 ```
 
 - **「备注」是 `serial_number` 的主要来源**：向日葵标准导出没有专门的硬件序列号列，序列号常被填在「备注」里；如「3101466-5CD5203BVK」，导入时取最后一个连字符后的「5CD5203BVK」为匹配键，完整备注仍保留。
-- **空 SN 不上传**：`asset_inventory.serial_number` 是主键，空值记录直接跳过，并在确认弹窗里显示「缺少 SN：N」。
+- **空 SN 独立保存（2026-10-10）**：空 SN 记录通过同一导入请求保存到 D1 `asset_inventory_no_sn`（首次导入时自动建表，`record_key` 由向日葵识别码优先、否则由完整行数据哈希生成），不写入 `asset_inventory`、不进入 `GET /devices`，因此设备列表和 Agent 匹配均不受影响。无识别码的记录若内容发生变化可能产生新的历史记录。**必须部署 AMS Worker 才能生效**；仅 Pages 自动部署不能使 Worker 逻辑上线。
 - **Import Key 只在内存里**：弹窗输入后存于局部变量，请求结束即释放；**不写** `localStorage` / `sessionStorage` / Cookie / 源码。
 - 重复导入同一份 CSV 是安全的：主键冲突时 Worker 执行 UPSERT（更新而非新增重复行）。
 - 失败提示展示 Worker 返回的具体错误（`HTTP 401 导入密码错误` / `HTTP 500 数据库写入失败`），不会只显示「上传失败」。

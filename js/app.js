@@ -12,6 +12,7 @@ let duplicateNameOnly = false; /* 仅查看合并后计算机名重复的独立�
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
 /* 升级标记：资产列改由服务端供数后，只需把旧的「默认隐藏」恢复一次 */
 const COLS_MIGRATION_KEY = "asset-center-hidden-cols-migrated-v3";
+const DEFAULT_HIDE_MIGRATION_KEY = "asset-center-default-hide-last-script-v1";
 /* 每列最小宽度：隐藏列后表格整体收窄，横向滚动条也随之变短 */
 const COL_MIN_WIDTH = {
   computer_name:170,asset_device_name:185,serial_number:150,windows_user:140,forticlient_user:130,
@@ -287,6 +288,21 @@ function migrateHiddenCols(){
     saveHiddenCols();
     localStorage.setItem(COLS_MIGRATION_KEY,"1");
   }catch(e){/* 存储不可用，仅本次生效 */}
+}
+
+/* 新默认：最后在线和脚本版本先隐藏。只初始化一次，
+   之后以用户复选框的本地偏好为准，取消勾选不会在刷新后再次隐藏。 */
+function initDefaultHiddenCols(){
+  try{
+    if(localStorage.getItem(DEFAULT_HIDE_MIGRATION_KEY))return;
+    hiddenCols.add("sun_last");
+    hiddenCols.add("script_version");
+    saveHiddenCols();
+    localStorage.setItem(DEFAULT_HIDE_MIGRATION_KEY,"1");
+  }catch(e){
+    hiddenCols.add("sun_last");
+    hiddenCols.add("script_version");
+  }
 }
 
 /* ---------- 导入状态条 ---------- */
@@ -637,6 +653,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
   dropLegacySunStore();    /* D1 asset_inventory 才是正式资产源，旧的浏览器缓存作废 */
   migrateHiddenCols();
+  initDefaultHiddenCols();
   const params=new URLSearchParams(location.search);
   const preset=params.get("q");
   if(preset)$("searchInput").value=preset;

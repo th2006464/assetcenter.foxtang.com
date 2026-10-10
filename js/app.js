@@ -83,15 +83,16 @@ function timeAgo(v){
 }
 
 function updateStats(data){
-  $("statTotal").textContent=data.length;
-  $("statHP").textContent=data.filter(d=>normalizeVendor(d.manufacturer)==="HP").length;
+  $("statTotal").textContent=data.filter(d=>asBool(d.has_agent)).length;
+  $("statHP").textContent=data.filter(d=>asBool(d.has_asset)).length;
   $("statWin11").textContent=data.filter(d=>osGroup(d.os_name)==="Windows 11").length;
   /* 自动化上报：脚本版本含 auto（如 1.3.2-auto），口径见 common.js 的 isAutoReport */
+  const agentData=data.filter(d=>asBool(d.has_agent));
   const elAuto=$("statAuto");
-  if(elAuto)elAuto.textContent=data.filter(d=>isAutoReport(d.script_version)).length;
+  if(elAuto)elAuto.textContent=agentData.filter(d=>isAutoReport(d.script_version)).length;
   /* 24 小时窗口用 RECENT_WINDOW_HOURS，是 3h 口径的超集（含 3h 内的设备） */
   const el24=$("statRecent24");
-  if(el24)el24.textContent=data.filter(d=>reportedWithinDay(d.report_time)).length;
+  if(el24)el24.textContent=agentData.filter(d=>reportedWithinDay(d.report_time)).length;
 }
 
 function compareValues(a,b,key){
@@ -604,7 +605,7 @@ async function loadDevices(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");
-    allDevices=reconcileDevices(data); updateStats(allDevices.filter(d=>asBool(d.has_agent))); currentPage=1;
+    allDevices=reconcileDevices(data); updateStats(allDevices); currentPage=1;
     /* 统一数据：把 asset_inventory 侧的字段摊平到展示字段上，并算出纳管状态 */
     allDevices.forEach(normalizeAssetFields);
     syncDataDrivenCols();

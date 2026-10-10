@@ -393,68 +393,76 @@ function snTail(v) {
   return i >= 0 ? s.slice(i + 1) : s;
 }
 
-/* 兼容旧资产导入：旧记录的主键含资产编号前缀，Worker 按完整 SN 连接时会拆成两行。
-   只合并有明确来源证据的唯一 SN 配对；兼容 Agent+资产以及旧资产前缀/纯 SN 双记录。 */
+/* Agent 是主数据，向日葵资产是扩展数据。匹配顺序：
+   1. 唯一的标准化 SN；2. 两侧均唯一的计算机名（仅对 SN 未匹配的记录）。
+   未匹配的向日葵记录单独保留供「未上报设备」筛选；不写回 D1。
+   Worker 的 FULL OUTER JOIN 可能已预先合并，因此必须先识别行的实际来源。 */
 function reconcileDevices(rows){
-  const groups=new Map();
-  (rows||[]).forEach((d,i)=>{
-    const sn=snTail(d.serial_number);
-    if(!sn)return;
-    const list=groups.get(sn)||[];
-    list.push(i);
-    groups.set(sn,list);
+  const input=Array.isArray(rows)?rows:[];
+  const isAgent=d=>!!safe(d.report_time).trim()&&safe(d.report_time).trim()!=="0";
+  const assetEvidence=d=>asBool(d.has_asset)||!!safe(d.asset_device_name).trim()||!!safe(d.device_name).trim()||!!safe(d.asset_note).trim()||!!safe(d.asset_group).trim();
+  const name=d=>safe(d.computer_name||d.asset_computer_name).trim().toUpperCase();
+  const agents=[],assets=[];
+  input.forEach((d,i)=>{
+    if(isAgent(d))agents.push({d,i});
+    else if(assetEvidence(d))assets.push({d,i});
+    else if(asBool(d.has_agent))agents.push({d,i});
   });
-  const removed=new Set(),replacement=new Map();
-  groups.forEach(indexes=>{
-    /* 只处理唯一的一对：一条真实 Agent 上报，一条没有上报时间的资产记录。 */
-    if(indexes.length!==2)return;
-    const reported=indexes.filter(i=>!!safe(rows[i].report_time).trim()&&safe(rows[i].report_time).trim()!=="0");
-    const unreported=indexes.filter(i=>!safe(rows[i].report_time).trim()||safe(rows[i].report_time).trim()==="0");
-    /* 旧向日葵资产双记录：一条“资产编号-SN”，一条纯 SN，
-       均无 Agent 上报；只有计算机名一致、双方有资产证据才展示去重。 */
-    if(reported.length===0&&unreported.length===2){
-      const [x,y]=unreported;
-      const left=rows[x],right=rows[y];
-      const lx=safe(left.serial_number).trim().toUpperCase();
-      const rx=safe(right.serial_number).trim().toUpperCase();
-      const nameA=safe(left.computer_name).trim().toUpperCase();
-      const nameB=safe(right.computer_name).trim().toUpperCase();
-      const evidence=d=>asBool(d.has_asset)||!!safe(d.asset_note).trim()||!!safe(d.device_name).trim()||!!safe(d.asset_device_name).trim();
-      if(!nameA||nameA!==nameB||!evidence(left)||!evidence(right))return;
-      if(!((lx.includes("-")&&rx===snTail(lx))||(rx.includes("-")&&lx===snTail(rx))))return;
-      const keep=lx.includes("-")?y:x,drop=keep===x?y:x;
-      const primary=rows[keep],secondary=rows[drop];
-      const combined={...secondary,...primary};
-      Object.keys(secondary).forEach(key=>{
-        if((combined[key]===null||combined[key]===undefined||combined[key]==="")&&secondary[key]!=null)
-          combined[key]=secondary[key];
-      });
-      combined.serial_number=primary.serial_number;
-      combined.has_agent=0;
-      combined.has_asset=1;
-      combined.management_status="agent_missing";
-      replacement.set(keep,combined);
-      removed.add(drop);
-      return;
-    }
-    if(reported.length!==1||unreported.length!==1)return;
-    const ai=reported[0],bi=unreported[0];
-    const agent=rows[ai],asset=rows[bi];
-    /* 必须有资产侧证据，防止两条普通设备记录误合并。 */
-    if(!asBool(asset.has_asset)&&!safe(asset.asset_note).trim()&&!safe(asset.device_name).trim()&&!safe(asset.asset_device_name).trim())return;
-    const combined={...asset,...agent};
-    Object.keys(asset).forEach(key=>{
-      if((combined[key]===null||combined[key]===undefined||combined[key]==="")&&asset[key]!=null)
-        combined[key]=asset[key];
+  const usedAssets=new Set(),matchedAgents=new Set();
+  const merged=new Map();
+  const apply=(a,b)=>{
+    const primary=a.d,extra=b.d;
+    const combined={...extra,...primary};
+    Object.keys(extra).forEach(k=>{
+      if((combined[k]===null||combined[k]===undefined||combined[k]==="")&&extra[k]!=null)combined[k]=extra[k];
     });
-    combined.serial_number=agent.serial_number;
-    combined.has_agent=1;
-    combined.has_asset=1;
-    combined.management_status="managed";
-    replacement.set(ai,combined);
-    removed.add(bi);
+    combined.serial_number=primary.serial_number;
+    combined.has_agent=1;combined.has_asset=1;combined.management_status="managed";
+    merged.set(a.i,combined);usedAssets.add(b.i);matchedAgents.add(a.i);
+  };
+  /* Worker 已联结的 Agent 行不应再次与其他资产行重复关联。 */
+  const prelinked=a=>asBool(a.d.has_asset)&&assetEvidence(a.d);
+  const byKey=(list,key)=>{
+    const map=new Map();
+    list.forEach(item=>{const k=key(item.d);if(!k)return;const arr=map.get(k)||[];arr.push(item);map.set(k,arr)});
+    return map;
+  };
+  const snKey=d=>snTail(d.serial_number);
+  const agentSn=byKey(agents,snKey),assetSn=byKey(assets,snKey);
+  agentSn.forEach((aa,k)=>{
+    const bb=assetSn.get(k)||[];
+    if(aa.length===1&&bb.length===1&&!prelinked(aa[0]))apply(aa[0],bb[0]);
   });
-  return rows.map((d,i)=>replacement.get(i)||d).filter((_,i)=>!removed.has(i));
+  const remainAgents=agents.filter(a=>!matchedAgents.has(a.i)&&!prelinked(a));
+  const remainAssets=assets.filter(b=>!usedAssets.has(b.i));
+  const agentNames=byKey(remainAgents,name),assetNames=byKey(remainAssets,name);
+  agentNames.forEach((aa,k)=>{
+    const bb=assetNames.get(k)||[];
+    if(aa.length===1&&bb.length===1)apply(aa[0],bb[0]);
+  });
+  /* 对仅向日葵历史数据：同一标准化 SN、同一计算机名的两种备注格式只显示一条。
+     不以计算机名单独合并不同 SN 的资产历史记录。 */
+  const remaining=assets.filter(b=>!usedAssets.has(b.i));
+  const groups=byKey(remaining,snKey);
+  groups.forEach(group=>{
+    if(group.length!==2)return;
+    const [x,y]=group, nx=name(x.d),ny=name(y.d);
+    if(!nx||nx!==ny)return;
+    const sx=normalizeSn(x.d.serial_number),sy=normalizeSn(y.d.serial_number);
+    if(!((sx.includes("-")&&snTail(sx)===sy)||(sy.includes("-")&&snTail(sy)===sx)))return;
+    const keep=sx.includes("-")?y:x,drop=keep===x?y:x;
+    const combined={...drop.d,...keep.d};
+    Object.keys(drop.d).forEach(k=>{if((combined[k]===null||combined[k]===undefined||combined[k]==="")&&drop.d[k]!=null)combined[k]=drop.d[k]});
+    combined.has_agent=0;combined.has_asset=1;combined.management_status="agent_missing";
+    merged.set(keep.i,combined);usedAssets.add(drop.i);
+  });
+  return input.map((d,i)=>{
+    if(usedAssets.has(i))return null;
+    const value=merged.get(i)||{...d};
+    if(!isAgent(value)&&assetEvidence(value)){value.has_agent=0;value.has_asset=1;value.management_status="agent_missing"}
+    else if(isAgent(value)){value.has_agent=1;value.management_status=asBool(value.has_asset)?"managed":"asset_missing"}
+    return value;
+  }).filter(Boolean);
 }
 
 function currentThemeIsDark(){

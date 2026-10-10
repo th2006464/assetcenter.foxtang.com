@@ -218,17 +218,12 @@ function parseSunlogin(text){
   return{rows:out};
 }
 
-/* CSV 行 → /import-assets 记录。
-   「备注」是 serial_number 的主要来源，提交前统一 TRIM + UPPERCASE；
-   空 SN 的记录直接跳过，绝不向接口发送空 serial_number（D1 里它是主键）。 */
+/* CSV 行 → /import-assets 记录。无 SN 记录也上传，由 Worker 单独入库，不进入设备列表。 */
 function toImportRecords(rows){
   const records=[],skipped=[];
   (rows||[]).forEach(r=>{
     const sn=snTail(r.note);
-    if(!sn){
-      skipped.push(safe(r.dev).trim()||safe(r.cn).trim()||"（空行）");
-      return;
-    }
+    if(!sn)skipped.push(safe(r.dev).trim()||safe(r.cn).trim()||"（无 SN）");
     records.push({
       serial_number:sn,
       device_name:safe(r.dev).trim(),
@@ -329,7 +324,7 @@ function updateSunStatus(){
   if(!sunMeta){setSunStatus(coverage);return}
   const m=sunMeta;
   const time=m.importedAt?formatBeijingTime(m.importedAt,false):"";
-  setSunStatus(`<b>资产数据导入成功</b> · 读取 ${m.read} · 导入 ${m.imported} · 跳过 ${m.skipped}`
+  setSunStatus(`<b>资产数据导入成功</b> · 读取 ${m.read} · 有 SN ${m.imported} · 无 SN 后台保存 ${m.storedWithoutSn||0} · 跳过 ${m.skipped}`
     +(time?` · ${escapeHtml(time)}`:"")
     +(coverage?` · ${coverage}`:""));
 }
@@ -414,13 +409,13 @@ async function importSunFile(file){
 
   const {records,skipped,total}=toImportRecords(parsed.rows);
   if(!records.length){
-    showSunError(`解析到 ${total} 行，但没有一行带「备注」序列号，已全部跳过。`);
+    showSunError(`解析到 ${total} 行，但没有可上传的设备记录。`);
     return;
   }
 
   const body=`<p>检测到 <b>${total}</b> 条设备记录</p>`
-    +`<p>有效 SN：<b>${records.length}</b></p>`
-    +(skipped.length?`<p>缺少 SN：<b>${skipped.length}</b>（不会上传）</p>`:"")
+    +`<p>有 SN：<b>${records.length-skipped.length}</b></p>`
+    +(skipped.length?`<p>无 SN：<b>${skipped.length}</b>（后台单独保存，不在设备列表显示）</p>`:"")
     +`<p class="modal-hint">确认导入？</p>`;
   const confirmed=await openModal({title:"导入向日葵表",body,confirmText:"确认导入",cancelText:"取消"});
   if(!confirmed){updateSunStatus();return}
@@ -458,9 +453,10 @@ async function postImport(records,total,skippedCount,importKey){
       return;
     }
     const imported=json&&json.imported!=null?json.imported:records.length;
-    const skipped=json&&json.skipped!=null?json.skipped:skippedCount;
+    const skipped=json&&json.skipped!=null?json.skipped:0;
+    const storedWithoutSn=json&&json.stored_without_sn!=null?json.stored_without_sn:0;
     const received=json&&json.received!=null?json.received:total;
-    sunMeta={importedAt:new Date().toISOString(),read:received,imported,skipped};
+    sunMeta={importedAt:new Date().toISOString(),read:received,imported,skipped,storedWithoutSn};
     /* 写库完成后重新拉服务端统一数据，列表立刻反映 Agent ∪ Asset 的并集 */
     await loadDevices();
   }catch(e){

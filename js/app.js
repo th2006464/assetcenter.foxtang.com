@@ -5,6 +5,7 @@ let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
+let showUnreportedOnly = false; /* 向日葵独有记录独立视图 */
 let duplicateNameOnly = false; /* 仅查看合并后计算机名重复的独立记录 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
@@ -457,6 +458,9 @@ async function postImport(records,total,skippedCount,importKey){
 }
 
 function setSourceFilter(source){
+  showUnreportedOnly=false;
+  const unreportedBtn=$("showUnreportedBtn");
+  if(unreportedBtn)unreportedBtn.setAttribute("aria-pressed","false");
   sourceFilter=sourceFilter===source?"":source;
   ["agent","asset"].forEach(kind=>{
     const btn=$(kind==="agent"?"showAgentBtn":"showAssetBtn");
@@ -481,7 +485,8 @@ function getFilteredSorted(){
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_version","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
     "sun_note","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
   const duplicates=duplicateNameOnly?duplicateComputerNames():null;
-  let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
+  let rows=allDevices.filter(d=>(showUnreportedOnly?!asBool(d.has_agent):asBool(d.has_agent))
+    &&(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
     &&(!duplicates||duplicates.has(safe(d.computer_name).trim().toUpperCase()))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
@@ -583,7 +588,7 @@ async function loadDevices(){
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     const data=await res.json();
     if(!Array.isArray(data))throw new Error("API 返回格式不是数组");
-    allDevices=reconcileDevices(data); updateStats(allDevices); currentPage=1;
+    allDevices=reconcileDevices(data); updateStats(allDevices.filter(d=>asBool(d.has_agent))); currentPage=1;
     /* 统一数据：把 asset_inventory 侧的字段摊平到展示字段上，并算出纳管状态 */
     allDevices.forEach(normalizeAssetFields);
     syncDataDrivenCols();
@@ -650,6 +655,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const agentBtn=$("showAgentBtn"),assetBtn=$("showAssetBtn");
   if(agentBtn)agentBtn.addEventListener("click",()=>setSourceFilter("agent"));
   if(assetBtn)assetBtn.addEventListener("click",()=>setSourceFilter("asset"));
+  const unreportedBtn=$("showUnreportedBtn");
+  if(unreportedBtn)unreportedBtn.addEventListener("click",()=>{
+    showUnreportedOnly=!showUnreportedOnly;
+    sourceFilter="";
+    ["showAgentBtn","showAssetBtn"].forEach(id=>{const btn=$(id);if(btn)btn.setAttribute("aria-pressed","false")});
+    unreportedBtn.setAttribute("aria-pressed",String(showUnreportedOnly));
+    currentPage=1;render();
+  });
   const duplicateBtn=$("showDuplicateNamesBtn");
   if(duplicateBtn)duplicateBtn.addEventListener("click",()=>{
     duplicateNameOnly=!duplicateNameOnly;

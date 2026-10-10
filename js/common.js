@@ -396,23 +396,25 @@ function snTail(v) {
 /* 兼容旧资产导入：旧记录的主键含资产编号前缀，Worker 按完整 SN 连接时会拆成两行。
    仅在同一硬件 SN 下恰好各有一条纯 Agent / 纯资产记录时合并，避免误合并。 */
 function reconcileDevices(rows){
-  const agents=new Map(),assets=new Map();
+  const groups=new Map();
   (rows||[]).forEach((d,i)=>{
     const sn=snTail(d.serial_number);
     if(!sn)return;
-    /* 兼容 Worker 返回的标记不完整：用真实数据判断来源，但不合并含糊记录。 */
-    const agent=asBool(d.has_agent)||!!safe(d.report_time).trim();
-    const asset=asBool(d.has_asset)||!!safe(d.asset_note).trim()||!!safe(d.device_name).trim()||!!safe(d.asset_device_name).trim();
-    if(agent===asset)return;
-    const map=agent?agents:assets;
-    const list=map.get(sn)||[];list.push(i);map.set(sn,list);
+    const list=groups.get(sn)||[];
+    list.push(i);
+    groups.set(sn,list);
   });
   const removed=new Set(),replacement=new Map();
-  agents.forEach((agentIndexes,sn)=>{
-    const assetIndexes=assets.get(sn)||[];
-    if(agentIndexes.length!==1||assetIndexes.length!==1)return;
-    const ai=agentIndexes[0],bi=assetIndexes[0];
+  groups.forEach(indexes=>{
+    /* 只处理唯一的一对：一条真实 Agent 上报，一条没有上报时间的资产记录。 */
+    if(indexes.length!==2)return;
+    const reported=indexes.filter(i=>!!safe(rows[i].report_time).trim()&&safe(rows[i].report_time).trim()!=="0");
+    const unreported=indexes.filter(i=>!safe(rows[i].report_time).trim()||safe(rows[i].report_time).trim()==="0");
+    if(reported.length!==1||unreported.length!==1)return;
+    const ai=reported[0],bi=unreported[0];
     const agent=rows[ai],asset=rows[bi];
+    /* 必须有资产侧证据，防止两条普通设备记录误合并。 */
+    if(!asBool(asset.has_asset)&&!safe(asset.asset_note).trim()&&!safe(asset.device_name).trim()&&!safe(asset.asset_device_name).trim())return;
     const combined={...asset,...agent};
     Object.keys(asset).forEach(key=>{
       if((combined[key]===null||combined[key]===undefined||combined[key]==="")&&asset[key]!=null)

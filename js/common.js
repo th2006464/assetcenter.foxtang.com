@@ -431,9 +431,9 @@ function reconcileDevices(rows){
   const agentSn=byKey(agents,snKey),assetSn=byKey(assets,snKey);
   agentSn.forEach((aa,k)=>{
     const bb=assetSn.get(k)||[];
-    if(aa.length===1&&bb.length===1&&!prelinked(aa[0]))apply(aa[0],bb[0]);
+    if(aa.length===1&&bb.length===1)apply(aa[0],bb[0]);
   });
-  const remainAgents=agents.filter(a=>!matchedAgents.has(a.i)&&!prelinked(a));
+  const remainAgents=agents.filter(a=>!matchedAgents.has(a.i));
   const remainAssets=assets.filter(b=>!usedAssets.has(b.i));
   const agentNames=byKey(remainAgents,name),assetNames=byKey(remainAssets,name);
   agentNames.forEach((aa,k)=>{

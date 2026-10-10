@@ -218,39 +218,39 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 
 登录页与 favicon 使用原尺寸 440 × 440 的 cybersecurity-440-q90.webp（WebP quality 90 / method 6），保留原 PNG 资源。登录样式、手动登录与认证恢复行为保持不变。本地测试 20 项通过，并验证构建资源、服务器路由及桌面/390px 明暗主题；真实 Google/Access 账号验收单独进行。
 
-## 设备去重与向日葵关联：已验证稳定基线（2026-10-10，请勿随意改动）
+## Agent 主数据与向日葵扩展关联（2026-10-10 新规则）
 
-**这是生产环境已通过用户实际验证的行为。后续修改 `js/common.js`、`js/app.js`、Worker `GET /devices`、CSV 导入或设备列表时，必须保持以下规则，并回归验证。**
+> 本节替代此前的“两条记录一条有上报时间才能合并”等历史补丁规则。修改 `js/common.js:reconcileDevices()` 或 `js/app.js` 前必须先阅读此节。**本规则已提交代码，仍需线上回归验证。**
 
-### 数据来源与匹配键
+### 主从关系
 
-- Agent 自动上报保存在 D1 `devices`，主键 `serial_number`，有有效 `report_time`；向日葵 CSV 保存在 `asset_inventory`，同样以 `serial_number` 为主键，包含 `device_name`、`asset_note`、`asset_group` 等。
-- 向日葵「备注」可能为 `资产编号-硬件SN`，例如 `3101466-5CD5203BVK`；Agent SN 为 `5CD5203BVK`。前端 `snTail()` 对字符串去空格、转大写、取**最后一个连字符之后**的片段作为匹配键。
-- 不能直接用完整的两侧 `serial_number` 做唯一匹配，也不能只用 `computer_name` 自动合并：计算机名可能重复或被复用，历史备注也可能不准确。
-- 旧导入资产的 D1 主键可能仍是完整备注 `3101466-5CD5203BVK`，所以 Worker 按原始 SN 做并集后，**前端仍需二次合并**；不要因为 Worker 已有 JOIN 就移除 `reconcileDevices()`。
+- D1 `devices` 是 Agent 自动上报主数据；以原始硬件 `serial_number` 识别设备，包含用户、系统、VPN、磁盘、`report_time` 等。
+- D1 `asset_inventory` 是向日葵 CSV 扩展数据，提供设备名称、分组、备注、最后在线等；不应因 CSV 中的资产记录而在默认设备列表重复生成设备。
+- Worker `GET /devices` 仍可能按原始 SN 输出 Agent / 向日葵并集；浏览器中的 `reconcileDevices()` 负责统一关联，仅改变展示，不改动 D1。
 
-### 前端合并的精确规则（`js/common.js:reconcileDevices()`）
+### 关联优先级
 
-1. 对 API 返回的全部行按 `snTail(d.serial_number)` 分组；空 SN 不参与。
-2. **仅当一个标准化 SN 分组恰好两条记录**，其中一条有非空且非 `"0"` 的 `report_time`，另一条无上报时间，才考虑合并。
-3. 无上报时间的记录必须有资产证据：`has_asset` 为真，或 `asset_note` / `device_name` / `asset_device_name` 非空。否则保持两条，避免误合并。
-4. 合并时以有上报时间的 Agent 行为主，补充资产侧缺失字段；保留 Agent 原始硬件 SN，并将 `has_agent=1`、`has_asset=1`、`management_status="managed"`。结果只展示一行。
-5. 若 SN 不一致、候选超过两条、无法明确区分来源或资产证据不足，**宁可保留独立行，也不能凭计算机名强制合并**。
-6. 这是**只影响浏览器显示的合并**，不删除、不覆盖 D1 中的原始记录；数据库行数与页面显示设备数可能不同。
+1. 先按 `snTail(serial_number)` 标准化 SN 匹配：`3101466-5CD5203BVK` 与 `5CD5203BVK` 为同一硬件 SN。
+2. SN 无法匹配时，使用计算机名（忽略大小写、首尾空格）兜底，**前提是待匹配的 Agent 和资产记录中该名称各自唯一**。
+3. 多个候选或名称不确定时不强行合并；Agent 字段优先，资产字段仅补充缺失信息。保留 Agent 原始 SN。
+4. Worker 已联结的 Agent 记录即使带有向日葵字段，仍可能有额外的历史资产行需要去重；不能用“Agent 行含资产字段”直接排除它。
+5. 对仅向日葵的旧资产双记录，仅在标准化 SN、计算机名均相同且恰好为「资产编号-SN」与纯 SN 两条时合并显示；不把它标记成 Agent 已上报。
 
-**实际验收案例：** 搜索 `15005035`，Agent 行 `SH15005035 / 5CD5203BVK` 与向日葵行 `SH15005035 / 3101466-5CD5203BVK` 应合并成**一行**；保留 Agent 的当前用户、Outlook 邮箱、上报时间，同时显示向日葵设备名称 `SH15005035-唐昊`、分组、备注。此前发生过两行重复展示，原因是按 `has_agent/has_asset` 及资产字段判断“纯来源”过于严格：Agent 行也可能带资产字段。**不要恢复这种来源互斥判断。**
+### 页面展示与筛选
 
-### 表格改动与回归检查
+- **默认列表仅展示 Agent 记录**。没有 Agent 的向日葵独有记录只在「高级筛选 → 未上报设备」查看。
+- 「仅看上传」「仅看向日葵」保留既有来源筛选；「仅看重名设备」统计当前已关联的展示记录。
+- 默认看板设备统计以 Agent 设备为准；「未上报设备」不计入默认设备总数。导入的向日葵资产仍保留在 D1。
+- 无效或缺失 `report_time` 显示 `—`。表头 `<th>` 与 `render()` 的 `<td>` 必须严格对齐；修改 JS 后更新 `devices.html` 中的 `?v=` 缓存版本。
 
-- 「向日葵设备名称」列位于「计算机名」右侧；`js/app.js:normalizeAssetFields()` 优先使用 `asset_device_name`，否则使用 `device_name`。空值显示 `—`；应保留搜索、排序、列显隐。
-- `devices.html` 中的 `<th data-key>` 顺序必须与 `js/app.js:render()` 的 `<td>` 顺序**一一对应**。增删列时同步更新 `COL_MIN_WIDTH`、CSV 导出/搜索（如适用）及初始空状态的 `colspan`，否则会出现 VPN 版本列显示日期、厂商列错位等故障。
-- `report_time` 为空、0 或解析为 1970 年时显示 `—`，不能显示 `1970-01-01 08:00:00` / 两万多天前；无 Agent 的资产记录本身不是异常数据。
-- 修改 `js/common.js` 后必须更新 `devices.html` 对应的 `?v=N`，修改 `js/app.js` 也必须更新对应版本；否则浏览器缓存可能继续运行旧代码。
-- **回归至少覆盖：** (a) 上述 `SH15005035` 搜索结果恰好一行；(b) 不同 SN 的同名计算机仍分别显示；(c) 只有资产、没有 Agent 的记录显示 `—` 上报时间；(d) 表头与数据不串列；(e) 来源筛选、搜索、排序、隐藏列仍正常。
-- 修改前先阅读本节并核对线上实际 `GET /api/devices` 字段；如 API 字段或标记有变化，先定位数据来源再调整合并算法，不要仅凭重复截图反复猜测。
+### 回归验收（上线后必须核查）
 
-### 数据维护安全边界
+- `SH15005035`：Agent `5CD5203BVK` 与资产 `3101466-5CD5203BVK` 合并成一行，保留 Agent 用户、邮箱、上报时间和向日葵设备名称。
+- `CGRZENBZM01`：两条仅向日葵历史记录 `3101133-4CE1261SJX` / `4CE1261SJX` 合并后**只在未上报设备视图**显示一条。
+- 同名不同 SN 且不满足唯一匹配的记录不能强制合并；检查搜索、排序、来源筛选、重名筛选、列显隐、CSV 导出和看板统计。
+- 如果线上 API 的 `has_agent` / `has_asset` 与上报时间有矛盾，先检查 Worker 原始数据，不要直接删除数据库记录。
 
-- `devices` 和 `asset_inventory` 当前都以 `serial_number` 为主键；`asset_inventory` 的 SQLite `rowid` 可临时用于精确查询/删除，但不是长期稳定的业务 ID。
-- **不要**使用 `WHERE computer_name = ...` 或“未匹配 Agent”作为整表批量删除条件；先 `SELECT` 检查 SN 和来源，必要时以 SN/rowid 精确操作。
-- CSV 导入按备注尾段生成 SN，Worker 采用 UPSERT；**更新备注导致匹配键改变时，旧 SN 记录不会自动因为新 CSV 缺席而消失**，应先核查再单独清理。前端显示去重不等于数据库物理去重。
+### 安全约束
+
+- 不使用计算机名作为数据库删除条件，不因前端关联而删除任何 Agent/向日葵数据。
+- 两张表仍以 `serial_number` 为主键；`rowid` 可用于当前 D1 临时精确查询，但不应当成永久稳定 ID。

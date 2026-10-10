@@ -5,6 +5,7 @@ let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
+let duplicateNameOnly = false; /* 仅查看合并后计算机名重复的独立记录 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
@@ -465,13 +466,24 @@ function setSourceFilter(source){
   render();
 }
 
+function duplicateComputerNames(){
+  const counts=new Map();
+  allDevices.forEach(d=>{
+    const name=safe(d.computer_name).trim().toUpperCase();
+    if(name)counts.set(name,(counts.get(name)||0)+1);
+  });
+  return new Set([...counts].filter(([,count])=>count>1).map(([name])=>name));
+}
+
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   /* 资产表字段也参与搜索：备注 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
   const keys=["serial_number","computer_name","windows_user","forticlient_user","forticlient_version","forticlient_last_seen","outlook_account","manufacturer","model","os_name","script_version",
     "sun_note","sun_group","sun_last","mac_address","internal_ip","last_login_ip","asset_computer_name","asset_device_name"];
+  const duplicates=duplicateNameOnly?duplicateComputerNames():null;
   let rows=allDevices.filter(d=>(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
+    &&(!duplicates||duplicates.has(safe(d.computer_name).trim().toUpperCase()))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
     /* C盘空间按剩余容量排序：升序时剩余最少在前；null / 无数据（旧 Agent）始终排最后 */
@@ -638,6 +650,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const agentBtn=$("showAgentBtn"),assetBtn=$("showAssetBtn");
   if(agentBtn)agentBtn.addEventListener("click",()=>setSourceFilter("agent"));
   if(assetBtn)assetBtn.addEventListener("click",()=>setSourceFilter("asset"));
+  const duplicateBtn=$("showDuplicateNamesBtn");
+  if(duplicateBtn)duplicateBtn.addEventListener("click",()=>{
+    duplicateNameOnly=!duplicateNameOnly;
+    duplicateBtn.setAttribute("aria-pressed",String(duplicateNameOnly));
+    currentPage=1;
+    render();
+  });
   const sunInput=$("sunFileInput");
   const importBtn=$("importSunBtn");
   if(importBtn&&sunInput){

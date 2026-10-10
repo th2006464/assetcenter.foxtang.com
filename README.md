@@ -254,12 +254,3 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 
 - 不使用计算机名作为数据库删除条件，不因前端关联而删除任何 Agent/向日葵数据。
 - 两张表仍以 `serial_number` 为主键；`rowid` 可用于当前 D1 临时精确查询，但不应当成永久稳定 ID。
-
-## 管理员管理功能（2026-10-10，待部署验证）
-
-- 唯一管理员邮箱：`th2006464@gmail.com`。服务端通过 Cloudflare Access JWT 的签名、AUD 和 email 验证权限；浏览器不可信，隐藏按钮不是权限校验。
-- `/session` 返回 `isAdmin`；普通用户无法看到向日葵导入按钮、设备选择列及删除按钮，后端 `/api/import-assets`、`/api/delete-device` 也拒绝非管理员。
-- 管理员导入不再输入 `IMPORT_KEY`，由 Pages 代理将已验证的 Access JWT 传给 AMS，AMS 独立校验管理员。Agent 的 `/report` 与 `API_KEY` 不变。原有 `IMPORT_KEY` 直连导入通道不再授予权限。
-- 管理员一次选择一台设备，删除时**必须主动选择** Agent、向日葵或两者，默认不预选，第二次确认后由 AMS 按 SN 精确删除。资产表旧前缀 SN 仅唯一命中才允许删除；未命中或歧义时不删除。每次成功删除写入 `asset_admin_audit` 审计表。
-- 删除不会阻止 Agent 后续再次上报；同名不同 SN 不会被按计算机名误删。
-- **部署依赖**：需要 Pages Functions 和 AMS Worker 同时更新。先部署 AMS，再部署 Pages；提交 GitHub 不能证明 Worker 已部署。上线前需测试管理员与普通用户权限、单源和双源删除以及导入流程。

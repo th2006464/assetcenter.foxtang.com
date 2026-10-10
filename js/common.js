@@ -400,11 +400,12 @@ function reconcileDevices(rows){
   (rows||[]).forEach((d,i)=>{
     const sn=snTail(d.serial_number);
     if(!sn)return;
-    if(asBool(d.has_agent)&&!asBool(d.has_asset)){
-      const list=agents.get(sn)||[];list.push(i);agents.set(sn,list);
-    }else if(asBool(d.has_asset)&&!asBool(d.has_agent)){
-      const list=assets.get(sn)||[];list.push(i);assets.set(sn,list);
-    }
+    /* 兼容 Worker 返回的标记不完整：用真实数据判断来源，但不合并含糊记录。 */
+    const agent=asBool(d.has_agent)||!!safe(d.report_time).trim();
+    const asset=asBool(d.has_asset)||!!safe(d.asset_note).trim()||!!safe(d.device_name).trim()||!!safe(d.asset_device_name).trim();
+    if(agent===asset)return;
+    const map=agent?agents:assets;
+    const list=map.get(sn)||[];list.push(i);map.set(sn,list);
   });
   const removed=new Set(),replacement=new Map();
   agents.forEach((agentIndexes,sn)=>{

@@ -394,7 +394,7 @@ function snTail(v) {
 }
 
 /* Agent 是主数据，向日葵资产是扩展数据。匹配顺序：
-   1. 唯一的标准化 SN；2. 两侧均唯一的计算机名（仅对 SN 未匹配的记录）。
+   1. 唯一的标准化 SN；2. 仅当至少一侧 SN 缺失，且计算机名在两侧原始全集各自唯一时才辅助关联；双方有不同 SN 时禁止按名称合并。
    未匹配的向日葵记录单独保留供「未上报设备」筛选；不写回 D1。
    Worker 的 FULL OUTER JOIN 可能已预先合并，因此必须先识别行的实际来源。 */
 function reconcileDevices(rows){
@@ -433,12 +433,21 @@ function reconcileDevices(rows){
     const bb=assetSn.get(k)||[];
     if(aa.length===1&&bb.length===1)apply(aa[0],bb[0]);
   });
+  /* 计算机名只用于 SN 缺失时的辅助关联。
+     唯一性必须在原始两侧全集校验，而非仅在 SN 匹配后的剩余集合校验，
+     否则同名的其他设备被 SN 匹配移走后可能制造虚假的“唯一”。 */
+  const agentNamesAll=byKey(agents,name),assetNamesAll=byKey(assets,name);
   const remainAgents=agents.filter(a=>!matchedAgents.has(a.i));
   const remainAssets=assets.filter(b=>!usedAssets.has(b.i));
   const agentNames=byKey(remainAgents,name),assetNames=byKey(remainAssets,name);
   agentNames.forEach((aa,k)=>{
     const bb=assetNames.get(k)||[];
-    if(aa.length===1&&bb.length===1)apply(aa[0],bb[0]);
+    if(aa.length!==1||bb.length!==1)return;
+    if((agentNamesAll.get(k)||[]).length!==1||(assetNamesAll.get(k)||[]).length!==1)return;
+    const agentSn=snKey(aa[0].d),assetSn=snKey(bb[0].d);
+    /* 双方 SN 都存在时，SN 不一致就是冲突：禁止名称兜底。 */
+    if(agentSn&&assetSn)return;
+    apply(aa[0],bb[0]);
   });
   /* 对仅向日葵历史数据：同一标准化 SN、同一计算机名的两种备注格式只显示一条。
      不以计算机名单独合并不同 SN 的资产历史记录。 */

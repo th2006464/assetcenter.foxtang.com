@@ -85,7 +85,7 @@ function timeAgo(v){
 function updateStats(data){
   $("statTotal").textContent=data.filter(d=>asBool(d.has_agent)).length;
   $("statHP").textContent=data.filter(d=>asBool(d.has_asset)).length;
-  $("statWin11").textContent=data.filter(d=>osGroup(d.os_name)==="Windows 11").length;
+  $("statWin11").textContent=data.filter(d=>asBool(d.has_asset)&&!asBool(d.has_agent)).length;
   /* 自动化上报：脚本版本含 auto（如 1.3.2-auto），口径见 common.js 的 isAutoReport */
   const agentData=data.filter(d=>asBool(d.has_agent));
   const elAuto=$("statAuto");

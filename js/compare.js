@@ -464,7 +464,8 @@ function renderStats() {
   $("stNowNote").textContent = "在线，可升级或排查";
   $("stLater").textContent = c.later;
   $("stLaterNote").textContent = "离线，待上线处理";
-  $("nFail").textContent = c.fail;
+  $("nMissing").textContent = c.missing;
+  $("nNonauto").textContent = c.nonauto;
   $("nNow").textContent = c.now;
   $("nLater").textContent = c.later;
   $("nOk").textContent = c.ok;

@@ -2,12 +2,13 @@
    依赖 js/common.js（$ / escapeHtml / safe / isAutoReport / initTheme）。 */
 
 const VERDICT = {
-  ok:      { text: "已安装／已获取",   cls: "ok" },
-  missing: { text: "从未上报",    cls: "missing" },
-  nonauto: { text: "未获取脚本",   cls: "nonauto" }
+  ok:      { text: "自动上传",   cls: "ok" },
+  missing: { text: "异常：无脚本版本",    cls: "missing" },
+  nonauto: { text: "手动上传 · 可升级",   cls: "nonauto" }
 };
 /* 排序时的优先级：越需要跟进的排越前 */
 const VERDICT_RANK = { missing: 0, nonauto: 1, ok: 2 };
+function scriptVerdict(v){return !hasScriptVersion(v)?"missing":isAutoReport(v)?"ok":"nonauto"}
 
 /* 处理建议：在线未装 → 现在就能推；离线未装 → 等上线再推 */
 const SUGGEST = {
@@ -377,9 +378,7 @@ function compare() {
   /* 判定源：标准表自带「自动化脚本已配置」列时以它为准（向日葵是权威源），
      否则退回用资产上报的 ScriptVersion 匹配。 */
   const useStdCol = state.stdHasAutoCol;
-  state.source = useStdCol
-    ? `向日葵导出「${state.stdAutoColName}」列`
-    : (state.apiOk ? `资产接口 ${API_URL} 的 script_version` : "手动上传的资产上报 CSV ScriptVersion");
+  state.source = state.apiOk ? `资产接口 ${API_URL} 的 script_version` : "手动上传的资产上报 CSV ScriptVersion";
 
   let disagree = 0, crossChecked = 0;
   const matchBy = { cn: 0, sn: 0, none: 0 };
@@ -398,22 +397,13 @@ function compare() {
     const uniqueV = Array.from(new Set(versions));
     const dup = versions.length > 1;
 
-    let verdict, script;
-    if (useStdCol) {
-      /* 标准表的配置列仅作辅助：Agent 已有有效版本时绝不能判成未安装。 */
-      script = hit && hasScriptVersion(hit.script) ? hit.script : (s.autoCfg || "");
-      verdict = hasScriptVersion(script) ? "ok" : (hit ? "nonauto" : "missing");
-      if (hit) {
-        crossChecked++;
-        const acVerdict = hasScriptVersion(hit.script) ? "ok" : "nonauto";
-        if (acVerdict !== verdict) disagree++;
-      }
-    } else if (hit) {
-      script = hit.script;
-      verdict = hasScriptVersion(script) ? "ok" : "nonauto";
-    } else {
-      script = "";
-      verdict = "missing";
+    /* 以 Agent 上报的脚本版本判断运行模式；向日葵配置列不是版本号。 */
+    const script = hit ? safe(hit.script).trim() : "";
+    const verdict = scriptVerdict(script);
+    if (useStdCol && hit) {
+      crossChecked++;
+      const stdConfigured = /^(是|已配置|true|yes|1)$/i.test(s.autoCfg || "");
+      if (stdConfigured && verdict === "missing") disagree++;
     }
 
     /* 在线状态来自向日葵；离线设备现在推不了，要等上线 */
@@ -469,11 +459,11 @@ function renderStats() {
   $("stOk").textContent = c.ok;
   $("stOkNote").textContent = "占比 " + pct(c.ok, c.all);
   $("stFail").textContent = c.fail;
-  $("stFailNote").textContent = "占比 " + pct(c.fail, c.all) + " · 需要推送";
+  $("stFailNote").textContent = "占比 " + pct(c.fail, c.all) + " · 手动版可升级 / 空白需排查";
   $("stNow").textContent = c.now;
-  $("stNowNote").textContent = "在线，现在就能推";
+  $("stNowNote").textContent = "在线，可升级或排查";
   $("stLater").textContent = c.later;
-  $("stLaterNote").textContent = "离线，等上线再推";
+  $("stLaterNote").textContent = "离线，待上线处理";
   $("nFail").textContent = c.fail;
   $("nNow").textContent = c.now;
   $("nLater").textContent = c.later;
@@ -529,7 +519,7 @@ function renderTable() {
     notes.push(`未匹配的 ${m.none} 台：资产数据里查无此计算机名，按「从未上报」处理`);
   }
   if (state.disagree > 0) {
-    notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），已以向日葵为准`);
+    notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），以 Agent 脚本版本为准`);
   }
   if (state.stdSkipped) notes.push(`标准表有 ${state.stdSkipped} 行没有计算机名，已跳过`);
   if (state.extra) notes.push(`另有 ${state.extra} 台只在资产数据中、不在标准表内，未纳入比对`);
@@ -542,8 +532,8 @@ function renderTable() {
   body.innerHTML = rows.map(r => {
     const v = VERDICT[r.verdict];
     const sg = SUGGEST[r.suggestion];
-    const scriptCls = !r.script ? "none" : (r.verdict === "nonauto" ? "bad" : "");
-    const scriptText = r.script ? escapeHtml(r.script) : "未配置";
+    const scriptCls = !hasScriptVersion(r.script) ? "none" : "";
+    const scriptText = hasScriptVersion(r.script) ? escapeHtml(r.script) : "—";
     /* 在线/离线：离线设备现在推不了，是「待上线推送」的关键依据 */
     const stCls = r.online ? "online" : "offline";
     /* 同名多台机器：把其它版本放到 title 里，并在版本号旁挂个角标 */
@@ -588,7 +578,7 @@ function exportCsv() {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob), a = document.createElement("a");
   a.href = url;
-  a.download = `未获取脚本-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `脚本覆盖对比-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 

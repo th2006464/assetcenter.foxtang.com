@@ -12,7 +12,7 @@ const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
 const COLS_MIGRATION_KEY = "asset-center-hidden-cols-migrated-v3";
 /* 每列最小宽度：隐藏列后表格整体收窄，横向滚动条也随之变短 */
 const COL_MIN_WIDTH = {
-  computer_name:170,serial_number:150,windows_user:140,forticlient_user:130,
+  computer_name:170,asset_device_name:185,serial_number:150,windows_user:140,forticlient_user:130,
   forticlient_version:135,forticlient_last_seen:150,outlook_account:200,manufacturer:100,model:210,
   os_name:180,c_drive_free_gb:130,report_time:150,script_version:120,
   sun_last:150,sun_group:130,sun_note:150
@@ -251,6 +251,7 @@ function toImportRecords(rows){
    Worker 还没升级时这些字段全是 undefined，对应列会自动隐藏，
    原有 Agent 字段的展示不受影响。 */
 function normalizeAssetFields(d){
+  d.asset_device_name=safe(d.asset_device_name).trim()||safe(d.device_name).trim();
   d.sun_group=safe(d.sun_group).trim()||safe(d.asset_group).trim();
   d.sun_note=safe(d.asset_note).trim();
   d.sun_last=safe(d.last_online_time).trim();
@@ -542,6 +543,7 @@ function render(){
     const vpnFull=safe(d.forticlient_user).trim();
     return `<tr>
       <td><strong>${escapeHtml(displayValue(d.computer_name))}</strong></td>
+      <td>${escapeHtml(displayValue(d.asset_device_name))}</td>
       <td class="mono">${escapeHtml(displayValue(d.serial_number))}</td>
       <td>${escapeHtml(displayValue(d.windows_user))}</td>
       <td class="mono"${vpnFull?` title="${escapeHtml(vpnFull)}"`:""}>${escapeHtml(displayVpnUser(d.forticlient_user))}</td>

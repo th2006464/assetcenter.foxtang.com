@@ -394,7 +394,7 @@ function snTail(v) {
 }
 
 /* 兼容旧资产导入：旧记录的主键含资产编号前缀，Worker 按完整 SN 连接时会拆成两行。
-   仅在同一硬件 SN 下恰好各有一条纯 Agent / 纯资产记录时合并，避免误合并。 */
+   只合并有明确来源证据的唯一 SN 配对；兼容 Agent+资产以及旧资产前缀/纯 SN 双记录。 */
 function reconcileDevices(rows){
   const groups=new Map();
   (rows||[]).forEach((d,i)=>{
@@ -410,6 +410,33 @@ function reconcileDevices(rows){
     if(indexes.length!==2)return;
     const reported=indexes.filter(i=>!!safe(rows[i].report_time).trim()&&safe(rows[i].report_time).trim()!=="0");
     const unreported=indexes.filter(i=>!safe(rows[i].report_time).trim()||safe(rows[i].report_time).trim()==="0");
+    /* 旧向日葵资产双记录：一条“资产编号-SN”，一条纯 SN，
+       均无 Agent 上报；只有计算机名一致、双方有资产证据才展示去重。 */
+    if(reported.length===0&&unreported.length===2){
+      const [x,y]=unreported;
+      const left=rows[x],right=rows[y];
+      const lx=safe(left.serial_number).trim().toUpperCase();
+      const rx=safe(right.serial_number).trim().toUpperCase();
+      const nameA=safe(left.computer_name).trim().toUpperCase();
+      const nameB=safe(right.computer_name).trim().toUpperCase();
+      const evidence=d=>asBool(d.has_asset)||!!safe(d.asset_note).trim()||!!safe(d.device_name).trim()||!!safe(d.asset_device_name).trim();
+      if(!nameA||nameA!==nameB||!evidence(left)||!evidence(right))return;
+      if(!((lx.includes("-")&&rx===snTail(lx))||(rx.includes("-")&&lx===snTail(rx))))return;
+      const keep=lx.includes("-")?y:x,drop=keep===x?y:x;
+      const primary=rows[keep],secondary=rows[drop];
+      const combined={...secondary,...primary};
+      Object.keys(secondary).forEach(key=>{
+        if((combined[key]===null||combined[key]===undefined||combined[key]==="")&&secondary[key]!=null)
+          combined[key]=secondary[key];
+      });
+      combined.serial_number=primary.serial_number;
+      combined.has_agent=0;
+      combined.has_asset=1;
+      combined.management_status="agent_missing";
+      replacement.set(keep,combined);
+      removed.add(drop);
+      return;
+    }
     if(reported.length!==1||unreported.length!==1)return;
     const ai=reported[0],bi=unreported[0];
     const agent=rows[ai],asset=rows[bi];

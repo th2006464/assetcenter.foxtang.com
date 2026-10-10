@@ -95,12 +95,12 @@
             <button id="showDuplicateNamesBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false" title="按合并后的设备列表统计，显示计算机名重复的记录">仅看重名设备</button>
             <button id="importSunBtn" class="btn btn-sm btn-primary" hidden type="button" title="上传向日葵设备表，按「备注」列匹配序列号">📥 导入向日葵表</button>
             <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
-            <button id="deleteSelectedBtn" class="btn btn-sm" type="button" hidden disabled>删除选中设备</button>
             <span id="sunStatus" class="sun-status" hidden></span>
           </div>
         </div>
       </details>
 
+      <div style="display:flex;justify-content:flex-end;margin:10px 0"><button id="deleteSelectedBtn" class="btn btn-sm" type="button" hidden disabled>删除选中设备</button></div>
       <div class="table-wrap">
         <table id="deviceTable">
           <thead>

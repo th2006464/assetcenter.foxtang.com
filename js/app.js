@@ -571,6 +571,7 @@ function render(){
     const vpnAgo=vpnTime?timeAgo(vpnTime):null;
     const vpnFull=safe(d.forticlient_user).trim();
     return `<tr>
+      ${isAdmin?`<td><input type="radio" name="adminDeviceSelect" value="${escapeHtml(safe(d.serial_number))}" aria-label="选择设备 ${escapeHtml(safe(d.computer_name))}" ${selectedDeviceSn===safe(d.serial_number)?"checked":""}></td>`:""}
       <td><strong>${escapeHtml(displayValue(d.computer_name))}</strong></td>
       <td>${escapeHtml(displayValue(d.asset_device_name))}</td>
       <td class="mono">${escapeHtml(displayValue(d.serial_number))}</td>

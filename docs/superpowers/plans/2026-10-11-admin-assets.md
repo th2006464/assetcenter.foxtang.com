@@ -42,6 +42,16 @@ Files: js/admin.js, js/app.js, devices.html, css/style.css, scripts/build.mjs, R
 - User explicitly authorized implementation of the discussed design; proceed without repeating approval. Work on codex/admin-asset-management in the existing checkout; baseline backups already protect the original.
 - Live ingestion differs from repository: preserve backed-up live block, including VPN version.
 
-- Verification: full suite, Pages compile, AMS dry-run passed. Browser synthetic UI verified administrator save, passwordless CSV import, and ordinary-user hidden controls. No production mutation/deployment performed.
+- Pre-release verification: full suite, Pages compile, AMS dry-run passed. Browser synthetic UI verified administrator save, passwordless CSV import, and ordinary-user hidden controls. No production mutation/deployment performed.
 - Review: fixed D1 row byte limit by UTF-8 grouped audit rows and JSON bulk imports; added repeat-import boundary tests. Fixed empty/multiline value preservation. Full-row snapshot guards now reject concurrent changes before commit to keep logs accurate.
 - Existing stale tests corrected to the baseline default Agent-only view, with additional unreported-view coverage. The old combined ingestion/import hash was obsolete; replaced with exact live-ingestion hash plus real ingestion SQL behavior.
+
+## Production release
+- Audit migration applied successfully without modifying existing source records. AMS version: `71ee8f95-e81b-444f-9a31-b5bec5aa8752`. Pages deployment: `77a5fb79-4df0-4516-9531-be2e504113d8`, source commit `ce76763`.
+- Fresh pre-deployment backup: `assetcenter-baseline-backups/20261011-083019-pre-admin-deploy`; live Worker unchanged from original baseline before deployment.
+- Post-deployment Worker /report block compared byte-for-byte to original production. Administrator vars verified in both services, prior AMS secret names retained.
+- Production counts verified: devices 255, asset_inventory 449, admin_audit 0. No real asset record was changed or deleted for acceptance.
+- Production checks: anonymous /session 200 with authenticated false; private page 302 to login; AMS /devices, admin PATCH and uncredentialed /report all 401. Three deployed JS files match local source hashes.
+- Browser-integrity protection rejected default Python urllib headers (1010); normal browser and browser-style HTTP requests verified behavior. No Cloudflare security setting changed.
+- Real Google/Access administrator and ordinary-user account acceptance remains for signed-in users. Synthetic signed JWT tests and browser fixture checks do not replace real-account acceptance.
+- Source available in draft PR #1; main is not merged. Production was deployed directly from the verified feature commit.

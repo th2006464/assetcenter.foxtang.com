@@ -165,7 +165,7 @@ function refreshColToggles(){buildColToggles()}
 /* 表头有 data-key，直接按 key 判；表体没有标记，按列序一一对应同步 */
 function applyColVisibility(){
   const ths=Array.from(document.querySelectorAll("#deviceTable thead th"));
-  const flags=ths.map(th=>!!(th.dataset.key&&isColHidden(th.dataset.key)));
+  const flags=ths.map(th=>!!(th.dataset.key&&isColHidden(th.dataset.key))||!!(th.hasAttribute?.("data-admin-column")&&(typeof isAdministrator!=="function"||!isAdministrator())));
   ths.forEach((th,i)=>{th.hidden=flags[i]});
   document.querySelectorAll("#deviceBody tr").forEach(tr=>{
     Array.from(tr.children).forEach((td,i)=>{td.hidden=!!flags[i]});
@@ -389,16 +389,17 @@ function openModal(opts){
 /* Worker 返回的具体错误要原样展示，不能只说「上传失败」 */
 function importErrorDetail(status,json,text){
   const body=json?(safe(json.error)||safe(json.message)):safe(text).trim();
-  if(status===401||status===403)return body?`导入密码错误 · ${body}`:"导入密码错误";
+  if(status===401)return body||"登录已失效，请重新登录";
+  if(status===403)return body||"需要管理员权限";
   if(status===400)return body||"请求格式不正确";
   if(status===413)return body||"数据量过大，请拆分后分批导入";
   if(status>=500)return body?`服务器错误 · ${body}`:"数据库写入失败";
   return body||"未知错误";
 }
 
-/* 选择 CSV → 解析 → 确认条数 → 输入 Import Key → POST /import-assets → 刷新列表 */
+/* 管理员选择 CSV → 解析 → 确认条数 → POST /import-assets → 刷新列表 */
 async function importSunFile(file){
-  if(!file||importBusy)return;
+  if(!file||importBusy||typeof isAdministrator!=="function"||!isAdministrator()||adminBusy)return;
   showSunError("正在解析…");
   let parsed;
   try{
@@ -423,21 +424,10 @@ async function importSunFile(file){
   const confirmed=await openModal({title:"导入向日葵表",body,confirmText:"确认导入",cancelText:"取消"});
   if(!confirmed){updateSunStatus();return}
 
-  /* Import Key 只存在于这个局部变量里：不写 localStorage / sessionStorage / Cookie，
-     请求结束即随变量回收。 */
-  const importKey=await openModal({
-    title:"资产导入密码",
-    body:`<p class="modal-hint">密码仅用于本次上传，不会保存在浏览器或源码中。</p>`,
-    input:{label:"Import Key",placeholder:"请输入资产导入密码"},
-    confirmText:"上传",
-    cancelText:"取消"
-  });
-  if(!importKey){updateSunStatus();return}
-
-  await postImport(records,total,skipped.length,importKey);
+  await postImport(records,total,skipped.length);
 }
 
-async function postImport(records,total,skippedCount,importKey){
+async function postImport(records,total,skippedCount){
   const btn=$("importSunBtn");
   importBusy=true;
   if(btn){btn.disabled=true;btn.classList.add("is-busy")}
@@ -445,13 +435,14 @@ async function postImport(records,total,skippedCount,importKey){
   try{
     const res=await authenticatedFetch(IMPORT_API_URL,{
       method:"POST",
-      headers:{"Content-Type":"application/json","X-Import-Key":importKey},
+      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({devices:records})
     });
     const text=await res.text();
     let json=null;
     try{json=JSON.parse(text)}catch(e){/* 部分错误响应是纯文本，按下面 text 兜底 */}
     if(!res.ok){
+      if(res.status===403){sessionUser=null;syncAdminControls();render();}
       showSunError(`导入失败 · HTTP ${res.status} · ${importErrorDetail(res.status,json,text)}`);
       return;
     }
@@ -464,11 +455,10 @@ async function postImport(records,total,skippedCount,importKey){
   }catch(e){
     console.error(e);
     showSunError("导入失败 · "+safe(e&&e.message||String(e))
-      +"（若提示 Failed to fetch，通常是 Worker 的 CORS 未放行 X-Import-Key）");
+      +"（请检查网络或稍后重试）");
   }finally{
     importBusy=false;
     if(btn){btn.disabled=false;btn.classList.remove("is-busy")}
-    importKey="";
   }
 }
 
@@ -591,12 +581,15 @@ function render(){
       <td>${escapeHtml(displayValue(d.sun_last))}</td>
       <td>${escapeHtml(displayValue(d.sun_group))}</td>
       <td class="mono">${escapeHtml(displayValue(d.sun_note))}</td>
+      <td data-admin-column>${typeof recordActions==="function"?recordActions(d,allDevices.indexOf(d)):""}</td>
     </tr>`;
   }).join("");
   applyColVisibility();
 }
 
 async function loadDevices(){
+  if(!await requireSession())return;
+  syncAdminControls();
   setStatus("正在读取数据");
   try{
     const res=await authenticatedFetch(API_URL,{cache:"no-store"});
@@ -649,6 +642,8 @@ function exportCsv(){
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (!await requireSession()) return;
+  syncAdminControls();
+  $("deviceBody").addEventListener("click",handleRecordAction);
   initTheme();
   dropLegacySunStore();    /* D1 asset_inventory 才是正式资产源，旧的浏览器缓存作废 */
   migrateHiddenCols();

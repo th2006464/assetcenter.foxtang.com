@@ -33,19 +33,19 @@
 ```
 选择 CSV → parseSunlogin()（表头自动定位，含「备注」列）
         → toImportRecords()（备注末段 = serial_number；空 SN 跳过）
-        → 确认条数弹窗 → Import Key 弹窗
-        → POST https://ams.foxtang.com/import-assets  →  D1 asset_inventory
+        → 确认条数弹窗（管理员免密码）
+        → POST /api/import-assets（同源代理）  →  D1 asset_inventory
         → 自动 reload GET /devices，列表立刻反映 Agent ∪ Asset 并集
 ```
 
 - **「备注」是 `serial_number` 的主要来源**：向日葵标准导出没有专门的硬件序列号列，序列号常被填在「备注」里；如「3101466-5CD5203BVK」，导入时取最后一个连字符后的「5CD5203BVK」为匹配键，完整备注仍保留。
 - **空 SN 不导入（2026-10-10）**：未初始化设备无 SN 时在前端直接跳过，不提交 Worker、不写 D1、不计入向日葵资产。初始化并获得 SN 后，下次导入会作为正式设备记录写入。
-- **Import Key 只在内存里**：弹窗输入后存于局部变量，请求结束即释放；**不写** `localStorage` / `sessionStorage` / Cookie / 源码。
+- **管理员免密码导入**：服务端验证 Access 身份与管理员角色，普通用户不显示按钮。
 - 重复导入同一份 CSV 是安全的：主键冲突时 Worker 执行 UPSERT（更新而非新增重复行）。
 - 失败提示展示 Worker 返回的具体错误（`HTTP 401 导入密码错误` / `HTTP 500 数据库写入失败`），不会只显示「上传失败」。
 - 上传期间导入按钮 disabled，避免重复提交。
 
-> **Import Key 的前置条件**：Worker 的 CORS 预检必须放行 `X-Import-Key`。当前线上 `Access-Control-Allow-Headers` 只有 `Content-Type, X-Api-Key`，浏览器会拦截该请求；Worker 需要改用独立的 `X-Import-Key / IMPORT_KEY`（**不能复用 Agent 的 API Key**）并把该头加入 `Access-Control-Allow-Headers`。
+> 无 Access 身份的机器导入仍使用独立 `X-Import-Key / IMPORT_KEY`，不能复用 Agent API Key；普通登录用户不能用密码绕过角色限制。
 
 ### 资产 / Agent 统一展示与纳管状态
 
@@ -194,11 +194,11 @@ Cloudflare Pages 已连接 GitHub 仓库，推送到 `main` 即自动部署。�
 
 ## 统一授权与后台兼容
 
-`/api` 由本业务专属 Access 邮箱策略保护；普通未授权用户通过主页按钮进入统一申请。`/session` 仅返回布尔登录状态，全部私有响应禁用缓存。`/api/auth/callback` 验证身份后返回 `/devices.html`。
+`/api` 由本业务专属 Access 邮箱策略保护；普通未授权用户通过主页按钮进入统一申请。`/session` 返回登录状态、经验证的邮箱、角色与功能权限，全部私有响应禁用缓存。`/api/auth/callback` 验证身份后返回 `/devices.html`。
 
 Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。AMS `/devices` 与 `/assets` 校验同一资产中心 AUD，原始 API 地址无法匿名读取。Pages 的 pages.dev、preview 与 rmm 别名不能读取私有 API。
 
-机器 `POST /report` 的路径、`X-Api-Key`、SQL 和响应保持原样；`POST /import-assets` 的独立 `X-Import-Key` 保持原样。网页导入通过登录后的同源代理发送，密钥只存在于该次操作局部变量。AMS 原有 Cron 为空；部署配置保持为空。
+机器 `POST /report` 的路径、`X-Api-Key`、SQL 和响应保持原样；`POST /import-assets` 的独立 `X-Import-Key` 保持原样。网页导入通过同源代理验证管理员身份，不需要密码。AMS 原有 Cron 为空；部署配置保持为空。
 
 验证：`npm test`、`npm run build`、`npx wrangler pages functions build`。AMS 独立部署：`npm run deploy:ams`（`--keep-vars` 保留现存 IMPORT_KEY，现有 API_KEY secret 自动保留），不得把密钥复制进配置或网页。
 
@@ -254,3 +254,26 @@ Pages Functions 使用 `AMS` service binding，并将已校验 JWT 传给 AMS。
 
 - 不使用计算机名作为数据库删除条件，不因前端关联而删除任何 Agent/向日葵数据。
 - 两张表仍以 `serial_number` 为主键；`rowid` 可用于当前 D1 临时精确查询，但不应当成永久稳定 ID。
+
+## 管理员权限升级（2026-10-11）
+
+管理员由 Pages 与 AMS 的服务端 `ADMIN_EMAILS` 配置识别，当前为 `th2006464@gmail.com`。其他已获本业务 Access 授权的用户保留全部既有只读功能。管理接口在 Pages 和 AMS 分别校验角色，Pages 写入请求还校验 Origin。
+
+- 管理员免密码导入向日葵 CSV；普通用户不可见导入按钮。机器导入保留独立 Import Key，但普通 Access 身份不可用密钥绕过角色。
+- 管理员可编辑除序列号、计算机名以外的字段，分别写回 Agent / 资产表；后续上报或导入可覆盖人工修改。
+- 删除使用 `record_refs` 中的精确原始主键，清理展示行对应的全部来源记录，不按计算机名删除。旧前缀 SN 与纯资产合并的来源引用都保留。重新上报或导入会重新出现。
+- `admin_audit` 保存操作者、类型、来源及修改前后信息。变更和日志以 D1 batch 原子提交；日志按 UTF-8 字节数分组，批量导入使用 JSON 批量写入，避免单行大小及大量 SQL 调用。日志失败整体回滚。
+- 提交时检查原始快照，若其他上报或管理操作已改变记录，返回 409，要求刷新后重试，不写入错误日志。
+- 升级保存了生产备份中的完整 `/report` 实现，含仓库旧版缺失的 VPN 版本采集。冻结哈希见 `tests/support/live-report.sha256`。
+
+接口：`POST /api/admin/records/detail` 读取详情；`PATCH /api/admin/records` 编辑；`DELETE /api/admin/records` 删除。请求包含 `refs: [{source: "agent" | "asset", serial_number, computer_name}]`；编辑另含 `changes: [{source, serial_number, fields}]`。关键字段及未知字段禁止修改。
+
+### 部署与回滚
+
+1. 保存部署时的生产 Worker、设置、版本与 D1 快照。已保存基线为 `4f3039166ce8`，本机目录 `assetcenter-baseline-backups/20261011-081655-4f3039166ce8`。
+2. `npm run migrate:ams` 仅新增审计表和索引，不改采集/资产表结构及已有记录。
+3. Pages 与 AMS 都配置 `ADMIN_EMAILS=th2006464@gmail.com`；保留现有 API_KEY / IMPORT_KEY secrets 与 Access 配置。AMS 部署使用 `--keep-vars`。
+4. 先 `npm run deploy:ams`，再 `npm run deploy`。本地 build / dry-run 不会部署。
+5. 用真实管理员和普通账号验收身份、读取、管理入口及权限拒绝；不删除真实资产作为验收测试。
+
+回滚优先恢复原线上 Worker 与前端版本。新审计表可保留，无需删表。仅回滚代码时不要回灌完整 D1，以免覆盖升级后的真实上报；误删记录应依据审计日志精确恢复。

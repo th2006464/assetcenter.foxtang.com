@@ -4,6 +4,7 @@
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-30",
   "vars": {
+    "ADMIN_EMAILS": "th2006464@gmail.com",
     "ACCESS_TEAM_DOMAIN": "teams-9dr-pages.cloudflareaccess.com",
     "ACCESS_AUD": "12809129156e3b926bf1e5280234d459720d84027d06a9033580fbdb498ce1f4"
   },

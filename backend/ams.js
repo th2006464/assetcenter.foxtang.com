@@ -1,4 +1,6 @@
 import { verifyAccess, accessToken } from './access.js';
+import {importAssets} from './import-assets.js';
+import {manageRecords} from './admin.js';
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -9,6 +11,7 @@ export default {
   async fetch(request, env) {
 
     const url = new URL(request.url);
+    if(['/admin/records','/admin/records/detail'].includes(url.pathname))return manageRecords(request,env);
     // Browser data requires this service's own verified Access identity.
     // Agent /report and the original import key validation remain unchanged.
     if (['/devices', '/assets'].includes(url.pathname) && request.method !== 'OPTIONS') {
@@ -36,25 +39,20 @@ export default {
     // 保持现有 Agent 上传逻辑不变
     // =====================================
     if (url.pathname === "/report") {
-
       if (request.method !== "POST") {
         return new Response("Method Not Allowed", {
           status: 405,
           headers: corsHeaders
         });
       }
-
       if (request.headers.get("X-Api-Key") !== env.API_KEY) {
         return new Response("Unauthorized", {
           status: 401,
           headers: corsHeaders
         });
       }
-
       try {
-
         const data = await request.json();
-
         await env.DB.prepare(`
           INSERT INTO devices
           (
@@ -67,13 +65,14 @@ export default {
             os_name,
             forticlient_user,
             forticlient_last_seen,
+            forticlient_version,
             c_drive_total_gb,
             c_drive_free_gb,
             report_time,
             script_version
           )
           VALUES
-          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
           ON CONFLICT(serial_number)
           DO UPDATE SET
@@ -106,6 +105,14 @@ export default {
                 ELSE devices.forticlient_last_seen
               END,
 
+            forticlient_version =
+              CASE
+                WHEN excluded.forticlient_version IS NOT NULL
+                     AND excluded.forticlient_version != ''
+                THEN excluded.forticlient_version
+                ELSE devices.forticlient_version
+              END,
+
             c_drive_total_gb =
               CASE
                 WHEN excluded.c_drive_total_gb IS NOT NULL
@@ -123,8 +130,7 @@ export default {
             report_time = excluded.report_time,
 
             script_version = excluded.script_version
-        `)
-        .bind(
+        `).bind(
           data.SerialNumber,
           data.ComputerName,
           data.WindowsUser,
@@ -134,13 +140,12 @@ export default {
           data.OSName,
           data.FortiClientUser || null,
           data.FortiClientLastSeen || null,
+          data.FortiClientVersion || null,
           data.CDriveTotalGB ?? null,
           data.CDriveFreeGB ?? null,
           data.ReportTime,
           data.ScriptVersion
-        )
-        .run();
-
+        ).run();
         return new Response(
           JSON.stringify({
             success: true
@@ -152,10 +157,7 @@ export default {
             }
           }
         );
-
-      }
-      catch (error) {
-
+      } catch (error) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -171,7 +173,6 @@ export default {
         );
       }
     }
-
 
     // =====================================
     // POST /import-assets
@@ -181,187 +182,14 @@ export default {
     // 不使用 Agent 的 API_KEY
     // =====================================
     if (url.pathname === "/import-assets") {
-
-      if (request.method !== "POST") {
-        return new Response("Method Not Allowed", {
-          status: 405,
-          headers: corsHeaders
-        });
-      }
-
-      // 独立的资产导入密码
-      if (
-        !env.IMPORT_KEY ||
-        request.headers.get("X-Import-Key") !== env.IMPORT_KEY
-      ) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: "Unauthorized"
-          }),
-          {
-            status: 401,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-      }
-
-      try {
-
-        const body = await request.json();
-
-        if (!body.devices || !Array.isArray(body.devices)) {
-          return new Response(
-            JSON.stringify({
-              success: false,
-              error: "Invalid devices data"
-            }),
-            {
-              status: 400,
-              headers: {
-                ...corsHeaders,
-                "Content-Type": "application/json"
-              }
-            }
-          );
-        }
-
-        let imported = 0;
-        let skipped = 0;
-        for (const device of body.devices) {
-
-          const serialNumber =
-            String(device.serial_number || "")
-              .trim()
-              .toUpperCase();
-
-          // 未初始化设备无 SN：跳过，不写入数据库。
-          if (!serialNumber) {
-            skipped++;
-            continue;
-          }
-
-          await env.DB.prepare(`
-            INSERT INTO asset_inventory
-            (
-              serial_number,
-              device_name,
-              asset_note,
-              status,
-              asset_group,
-              sunlogin_code,
-              sunlogin_version,
-              deployment_source,
-              system_version,
-              mac_address,
-              internal_ip,
-              last_login_ip,
-              last_online_time,
-              computer_name,
-              processor,
-              memory,
-              import_time
-            )
-
-            VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-
-            ON CONFLICT(serial_number)
-            DO UPDATE SET
-
-              device_name = excluded.device_name,
-
-              asset_note = excluded.asset_note,
-
-              status = excluded.status,
-
-              asset_group = excluded.asset_group,
-
-              sunlogin_code = excluded.sunlogin_code,
-
-              sunlogin_version = excluded.sunlogin_version,
-
-              deployment_source = excluded.deployment_source,
-
-              system_version = excluded.system_version,
-
-              mac_address = excluded.mac_address,
-
-              internal_ip = excluded.internal_ip,
-
-              last_login_ip = excluded.last_login_ip,
-
-              last_online_time = excluded.last_online_time,
-
-              computer_name = excluded.computer_name,
-
-              processor = excluded.processor,
-
-              memory = excluded.memory,
-
-              import_time = excluded.import_time
-          `)
-          .bind(
-            serialNumber,
-            device.device_name || null,
-            device.asset_note || null,
-            device.status || null,
-            device.asset_group || null,
-            device.sunlogin_code || null,
-            device.sunlogin_version || null,
-            device.deployment_source || null,
-            device.system_version || null,
-            device.mac_address || null,
-            device.internal_ip || null,
-            device.last_login_ip || null,
-            device.last_online_time || null,
-            device.computer_name || null,
-            device.processor || null,
-            device.memory || null,
-            new Date().toISOString()
-          )
-          .run();
-
-          imported++;
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            received: body.devices.length,
-            imported: imported,
-            skipped: skipped
-          }),
-          {
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-
-      }
-      catch (error) {
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: error.message
-          }),
-          {
-            status: 500,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-      }
+      if(request.method!=="POST")return new Response("Method Not Allowed",{status:405});
+      const token=accessToken(request);
+      const user=await verifyAccess(token,env);
+      if(token&&!user)return Response.json({error:'Unauthorized'},{status:401});
+      if(user&&user.role!=='admin')return Response.json({error:'需要管理员权限'},{status:403});
+      if(!user&&(!env.IMPORT_KEY||request.headers.get('X-Import-Key')!==env.IMPORT_KEY))return Response.json({error:'Unauthorized'},{status:401});
+      return importAssets(request,env,user?.email||'machine-import');
     }
-
 
     // =====================================
     // GET /devices
@@ -395,6 +223,10 @@ export default {
           SELECT
 
             d.serial_number AS serial_number,
+            d.serial_number AS agent_serial_number,
+            d.computer_name AS agent_original_name,
+            a.serial_number AS asset_serial_number,
+            a.computer_name AS asset_original_name,
 
             d.computer_name AS computer_name,
             d.windows_user AS windows_user,
@@ -406,6 +238,7 @@ export default {
 
             d.forticlient_user AS forticlient_user,
             d.forticlient_last_seen AS forticlient_last_seen,
+            d.forticlient_version AS forticlient_version,
 
             d.c_drive_total_gb AS c_drive_total_gb,
             d.c_drive_free_gb AS c_drive_free_gb,
@@ -482,6 +315,10 @@ export default {
           SELECT
 
             a.serial_number AS serial_number,
+            NULL AS agent_serial_number,
+            NULL AS agent_original_name,
+            a.serial_number AS asset_serial_number,
+            a.computer_name AS asset_original_name,
 
 
             /*
@@ -510,6 +347,7 @@ export default {
 
             NULL AS forticlient_user,
             NULL AS forticlient_last_seen,
+            NULL AS forticlient_version,
 
             NULL AS c_drive_total_gb,
             NULL AS c_drive_free_gb,
@@ -581,7 +419,13 @@ export default {
 
 
         return new Response(
-          JSON.stringify(result.results),
+          JSON.stringify(result.results.map(row=>{
+            const {agent_serial_number,agent_original_name,asset_serial_number,asset_original_name,...data}=row;
+            const record_refs=[];
+            if(agent_serial_number!=null)record_refs.push({source:'agent',serial_number:agent_serial_number,computer_name:agent_original_name});
+            if(asset_serial_number!=null)record_refs.push({source:'asset',serial_number:asset_serial_number,computer_name:asset_original_name});
+            return {...data,record_refs};
+          })),
           {
             headers: {
               ...corsHeaders,

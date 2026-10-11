@@ -1,0 +1,9 @@
+# Asset center administrator permissions
+
+Approved scope from the conversation: th2006464@gmail.com is the administrator. Other Access-authorized users retain all existing read/search/filter/dashboard/compare/export behavior. Only administrators see import/edit/delete. Browser imports require no password. Serial number and computer name are immutable through management APIs. Other fields are editable until the next report/import. Delete removes all exact underlying records represented by the selected display row; a later report/import recreates them. Keep operation audit records.
+
+Access JWT remains the identity source. A shared server-side administrator allowlist resolves roles. Pages and AMS independently enforce roles; mutations on Pages require same-origin requests. Machine report authentication is unchanged. Import-key machine integration remains supported only without an Access identity; ordinary authenticated users cannot use a key to bypass role checks.
+
+GET /devices adds original source references (agent/asset, raw serial number, original computer name). Frontend reconciliation retains the references from every merged record. Management detail/edit/delete addresses these exact source references, never a normalized name. Changes use explicit per-source field allowlists. Existing-record lookup and write predicates include original computer name to detect changed identities. D1 batch commits data changes and audit together.
+
+Baseline 4f3039166ce8 is backed up outside the repository, including live Worker and D1 export. The live /report includes FortiClientVersion absent in the repository. Preserve the live /report block verbatim; characterize real SQL and response behavior. No production data is changed during verification. Deployment is a separate final step after review.

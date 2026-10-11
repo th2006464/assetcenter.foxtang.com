@@ -4,7 +4,7 @@ import { generateKeyPair, SignJWT, exportJWK } from 'jose';
 import { verifyAccess, accessToken } from '../backend/access.js';
 import ams from '../backend/ams.js';
 import { onRequest } from '../functions/api/[[path]].js';
-const env = {ACCESS_TEAM_DOMAIN:'teams-9dr-pages.cloudflareaccess.com', ACCESS_AUD:'assetcenter-aud', API_KEY:'test-agent-key', IMPORT_KEY:'test-import-key'};
+const env = {ACCESS_TEAM_DOMAIN:'teams-9dr-pages.cloudflareaccess.com', ACCESS_AUD:'assetcenter-aud', API_KEY:'test-agent-key', IMPORT_KEY:'test-import-key', ADMIN_EMAILS:'admin@example.com'};
 test('identity validates issuer, audience, expiry and user claims', async()=>{
  const {privateKey,publicKey}=await generateKeyPair('RS256');
  const make=(aud,exp='5m')=>new SignJWT({email:'admin@example.com',type:'app'}).setProtectedHeader({alg:'RS256'}).setSubject('u').setIssuer('https://'+env.ACCESS_TEAM_DOMAIN).setAudience(aud).setExpirationTime(exp).sign(privateKey);
@@ -42,10 +42,11 @@ test('import still requires its independent key and accepts authenticated valid 
 
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-test('production Agent and import implementation remain byte-identical',()=>{
+test('live production Agent implementation remains byte-identical',()=>{
  const source=readFileSync('backend/ams.js','utf8');
- const block=source.slice(source.indexOf('if (url.pathname === "/report")'),source.indexOf('// GET /devices'));
- assert.equal(createHash('sha256').update(block).digest('hex'),'06769670fa8369e86939c039a4b656c602bf00928bea9e91148a52ab736f4ec4');
+ const start=source.indexOf('    if (url.pathname === "/report")');
+ const block=source.slice(start,source.indexOf('    // =====================================\n    // POST /import-assets',start)).trimEnd();
+ assert.equal(createHash('sha256').update(block).digest('hex'),readFileSync('tests/support/live-report.sha256','utf8').trim());
 });
 
 test('verified import proxy forwards independent key and rejects cross-origin writes',async()=>{

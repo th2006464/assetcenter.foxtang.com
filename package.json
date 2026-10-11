@@ -4,6 +4,7 @@
   "scripts": {
     "test": "node --test tests/*.test.js tests/*.test.mjs",
     "build": "node scripts/build.mjs",
+    "migrate:ams": "wrangler d1 migrations apply ams --remote --config backend/wrangler.jsonc",
     "deploy:ams": "wrangler deploy --config backend/wrangler.jsonc --keep-vars",
     "deploy": "npm run build && wrangler pages deploy public --project-name asset-center --branch main"
   },

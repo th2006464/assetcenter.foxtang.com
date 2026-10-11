@@ -7,7 +7,7 @@
   <title>自动化终端管理平台</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=24">
+  <link rel="stylesheet" href="css/style.css?v=admin-24">
 </head>
 <body>
   <div class="app-shell">
@@ -93,7 +93,8 @@
             <button id="showAssetBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false">仅看向日葵</button>
             <button id="showUnreportedBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false" title="仅查看向日葵资产中存在、Agent 未上报的设备">未上报设备</button>
             <button id="showDuplicateNamesBtn" class="btn btn-sm source-filter-btn" type="button" aria-pressed="false" title="按合并后的设备列表统计，显示计算机名重复的记录">仅看重名设备</button>
-            <button id="importSunBtn" class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">📥 导入向日葵表</button>
+            <span id="sessionIdentity" class="session-identity" hidden></span>
+            <button id="importSunBtn" hidden class="btn btn-sm btn-primary" type="button" title="上传向日葵设备表，按「备注」列匹配序列号">📥 导入向日葵表</button>
             <input id="sunFileInput" type="file" accept=".csv,text/csv" hidden>
             <span id="sunStatus" class="sun-status" hidden></span>
           </div>
@@ -121,6 +122,7 @@
               <th data-key="sun_last" title="向日葵「最后在线时间」"><button class="sort-btn" type="button" tabindex="-1"><span>最后在线</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_group" title="向日葵分组，如 工厂-东阿 / 上海-总部"><button class="sort-btn" type="button" tabindex="-1"><span>向日葵分组</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
               <th data-key="sun_note" title="向日葵「备注」列，即匹配用的序列号"><button class="sort-btn" type="button" tabindex="-1"><span>备注</span><span class="sort-indicator"><span class="arrow">▲</span><span class="arrow">▼</span></span></button></th>
+              <th data-admin-column hidden>操作</th>
             </tr>
           </thead>
           <tbody id="deviceBody">
@@ -143,7 +145,8 @@
     <p class="page-watermark">Endpoint inventory &amp; automation overview powered by Cloudflare D1.</p>
   </div>
 
-  <script src="js/common.js?v=29"></script>
-  <script src="js/app.js?v=34"></script>
+  <script src="js/common.js?v=30"></script>
+  <script src="js/admin.js?v=1"></script>
+  <script src="js/app.js?v=35"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ context.rows=[
 ];
 vm.runInContext('allDevices=rows',context);
 const ids=()=>Array.from(vm.runInContext('getFilteredSorted()',context),d=>d.serial_number).sort();
-assert.deepEqual(ids(),['A','B','C']);
+assert.deepEqual(ids(),['A','C'],'默认只显示 Agent');
 /* 管理状态列与高级筛选里的「纳管状态」多选都已下线，只剩看板下钻的单状态筛选 */
 vm.runInContext("activeFilter={key:'manage',value:'managed'}",context);
 assert.deepEqual(ids(),['A'],'看板下钻「正常纳管」应只留 A');
@@ -20,4 +20,5 @@ vm.runInContext("sourceFilter='agent'",context);
 assert.deepEqual(ids(),['A'],'来源筛选与纳管下钻应叠加');
 vm.runInContext("sourceFilter='';activeFilter={key:'manage',value:'asset_missing'}",context);
 assert.deepEqual(ids(),['C'],'看板下钻换状态应继续生效');
+vm.runInContext("showUnreportedOnly=true;activeFilter={key:'manage',value:'agent_missing'}",context);assert.deepEqual(ids(),['B'],'未上报视图支持管理状态筛选');
 console.log('manage filter tests passed');

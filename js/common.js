@@ -2,7 +2,7 @@
    Load this file before app.js / dashboard.js. */
 
 const API_URL = "/api/devices";
-/* 资产 CSV 导入接口（独立于 Agent 上报的 /report，鉴权用 X-Import-Key） */
+/* 管理员资产 CSV 导入接口；服务端验证 Access 身份与角色。 */
 const IMPORT_API_URL = "/api/import-assets";
 const THEME_KEY = "asset-center-theme";
 /* 旧版本把向日葵表缓存在浏览器本地，改由 D1 asset_inventory 统一存储后不再需要 */
@@ -397,6 +397,12 @@ function snTail(v) {
    1. 唯一的标准化 SN；2. 仅当至少一侧 SN 缺失，且计算机名在两侧原始全集各自唯一时才辅助关联；双方有不同 SN 时禁止按名称合并。
    未匹配的向日葵记录单独保留供「未上报设备」筛选；不写回 D1。
    Worker 的 FULL OUTER JOIN 可能已预先合并，因此必须先识别行的实际来源。 */
+function mergeRecordRefs(...rows){
+  const refs=new Map();
+  rows.forEach(row=>(row.record_refs||[]).forEach(ref=>refs.set(JSON.stringify([ref.source,ref.serial_number]),ref)));
+  return [...refs.values()];
+}
+
 function reconcileDevices(rows){
   const input=Array.isArray(rows)?rows:[];
   const isAgent=d=>!!safe(d.report_time).trim()&&safe(d.report_time).trim()!=="0";
@@ -416,6 +422,7 @@ function reconcileDevices(rows){
     Object.keys(extra).forEach(k=>{
       if((combined[k]===null||combined[k]===undefined||combined[k]==="")&&extra[k]!=null)combined[k]=extra[k];
     });
+    combined.record_refs=mergeRecordRefs(primary,extra);
     combined.serial_number=primary.serial_number;
     combined.has_agent=1;combined.has_asset=1;combined.management_status="managed";
     merged.set(a.i,combined);usedAssets.add(b.i);matchedAgents.add(a.i);
@@ -462,6 +469,7 @@ function reconcileDevices(rows){
     const keep=sx.includes("-")?y:x,drop=keep===x?y:x;
     const combined={...drop.d,...keep.d};
     Object.keys(drop.d).forEach(k=>{if((combined[k]===null||combined[k]===undefined||combined[k]==="")&&drop.d[k]!=null)combined[k]=drop.d[k]});
+    combined.record_refs=mergeRecordRefs(keep.d,drop.d);
     combined.has_agent=0;combined.has_asset=1;combined.management_status="agent_missing";
     merged.set(keep.i,combined);usedAssets.add(drop.i);
   });
@@ -480,6 +488,7 @@ function currentThemeIsDark(){
   return matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+let sessionUser=null;
 let restoringLogin=false;
 function restoreManualLogin(){if(!restoringLogin){restoringLogin=true;location.replace('/?login=1');}}
 async function authenticatedFetch(input, init={}) {
@@ -492,9 +501,10 @@ async function authenticatedFetch(input, init={}) {
   return response;
 }
 async function requireSession(){
+  sessionUser=null;
   let session;
   try{const r=await fetch('/session',{cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(4000)});if(!r.ok)return true;session=await r.json();}catch{return true;}
-  if(session.authenticated===true)return true;
+  if(session.authenticated===true){sessionUser=session.user||null;return true;}
   if(session.authenticated===false){restoreManualLogin();return false;}
   return true;
 }

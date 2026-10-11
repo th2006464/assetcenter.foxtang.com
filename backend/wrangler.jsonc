@@ -7,6 +7,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": {
+    "ADMIN_EMAILS": "th2006464@gmail.com",
     "ACCESS_TEAM_DOMAIN": "teams-9dr-pages.cloudflareaccess.com",
     "ACCESS_AUD": "12809129156e3b926bf1e5280234d459720d84027d06a9033580fbdb498ce1f4"
   },
@@ -20,6 +21,7 @@
     {
       "binding": "DB",
       "database_name": "ams",
+      "migrations_dir": "migrations",
       "database_id": "01737c5b-7a1d-4446-b384-06506bae195a"
     }
   ],

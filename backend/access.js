@@ -14,6 +14,9 @@ export async function verifyAccess(token, env, keys) {
     }
     const {payload} = await jwtVerify(token, keys, {issuer:`https://${env.ACCESS_TEAM_DOMAIN}`, audience:env.ACCESS_AUD, algorithms:['RS256'], requiredClaims:['sub','exp','email','type']});
     if (payload.type !== 'app' || typeof payload.sub !== 'string' || !payload.sub || typeof payload.email !== 'string' || !/^[^\s@]+@[^\s@]+$/.test(payload.email)) return null;
-    return {id:payload.sub, email:payload.email};
+    const email=payload.email.trim().toLowerCase();
+    const admins=(env.ADMIN_EMAILS || '').split(',').map(value=>value.trim().toLowerCase()).filter(Boolean);
+    const role=admins.includes(email)?'admin':'user';
+    return {id:payload.sub, email, role, permissions:{import_assets:role==='admin',edit_records:role==='admin',delete_records:role==='admin'}};
   } catch { return null; }
 }

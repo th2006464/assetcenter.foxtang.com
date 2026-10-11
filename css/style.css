@@ -161,3 +161,19 @@ th.sorted .sort-indicator .arrow:not(.active){opacity:.3}
 @media (max-width:760px){.page-size-wrap{margin-right:0}.panel-footer{align-items:flex-start}.pagination{justify-content:flex-start}}
 
 .source-filter-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* Administrator management controls */
+.session-identity{font-size:12px;color:var(--muted)}
+.session-identity[hidden],.editor-error[hidden]{display:none}
+.record-actions{display:flex;gap:6px;white-space:nowrap}
+.btn-danger{color:var(--danger,#dc2626)}
+.admin-editor{max-width:820px;max-height:90vh;display:flex;flex-direction:column}
+.editor-fields{overflow-y:auto;min-height:0;padding:4px 2px}
+.record-fieldset{border:1px solid var(--line);border-radius:12px;margin:12px 0;padding:12px 16px 18px;min-width:0}
+.record-fieldset legend{font-size:13px;font-weight:600;padding:0 6px}
+.editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.modal-input[readonly]{background:var(--bg);color:var(--muted)}
+.editor-note{min-height:80px;padding-top:10px;resize:vertical}
+.editor-error{font-size:13px;color:var(--danger,#dc2626);margin:8px 0 0}
+.record-summary{padding-left:20px;overflow-wrap:anywhere}
+@media(max-width:600px){.modal-mask{padding:12px}.admin-editor{padding:16px;max-height:94vh}.editor-grid{grid-template-columns:1fr}.session-identity{width:100%}}

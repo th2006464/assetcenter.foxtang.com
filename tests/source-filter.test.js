@@ -15,14 +15,15 @@ context.sample = [
 ];
 vm.runInContext('allDevices=sample; render=()=>{}',context);
 const ids=()=>Array.from(vm.runInContext('getFilteredSorted()',context),d=>d.serial_number).sort();
-assert.deepEqual(ids(),['A','B','C']);
+assert.deepEqual(ids(),['A','C'],'默认列表仅显示 Agent 记录');
 vm.runInContext("setSourceFilter('agent')",context);
 assert.deepEqual(ids(),['A','C'],'上传视图应包含已合并设备');
 vm.runInContext("setSourceFilter('asset')",context);
-assert.deepEqual(ids(),['B','C'],'向日葵视图应包含已合并设备');
+assert.deepEqual(ids(),['C'],'默认向日葵来源筛选显示已上报且匹配资产的设备');
 vm.runInContext("setSourceFilter('asset')",context);
-assert.deepEqual(ids(),['A','B','C'],'重复点击已选按钮应恢复全部');
+assert.deepEqual(ids(),['A','C'],'重复点击恢复默认 Agent 列表');
 vm.runInContext("setSourceFilter('agent')",context);
 elements.searchInput.value='GAMMA';
 assert.deepEqual(ids(),['C'],'来源筛选和搜索应同时生效');
+elements.searchInput.value='';vm.runInContext("sourceFilter='';showUnreportedOnly=true",context);assert.deepEqual(ids(),['B'],'未上报设备独立视图');
 console.log('source filter tests passed');

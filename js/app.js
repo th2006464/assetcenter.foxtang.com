@@ -5,6 +5,7 @@ let pageSize = 20;
 let currentPage = 1;
 let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参数 */
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
+let notAutoOnly = false; /* 脚本版本不包含 auto */
 let showUnreportedOnly = false; /* 向日葵独有记录独立视图 */
 let duplicateNameOnly = false; /* 仅查看合并后计算机名重复的独立记录 */
 let emptyOutlookOnly = false; /* 仅查看 Outlook 邮箱为空的设备 */
@@ -468,10 +469,8 @@ function setSourceFilter(source){
   const unreportedBtn=$("showUnreportedBtn");
   if(unreportedBtn)unreportedBtn.setAttribute("aria-pressed","false");
   sourceFilter=sourceFilter===source?"":source;
-  ["agent","asset"].forEach(kind=>{
-    const btn=$(kind==="agent"?"showAgentBtn":"showAssetBtn");
-    if(btn)btn.setAttribute("aria-pressed",String(sourceFilter===kind));
-  });
+  const btn=$("showAgentBtn");
+  if(btn)btn.setAttribute("aria-pressed",String(sourceFilter==="agent"));
   currentPage=1;
   render();
 }
@@ -485,6 +484,14 @@ function duplicateComputerNames(){
   return new Set([...counts].filter(([,count])=>count>1).map(([name])=>name));
 }
 
+function setNotAutoFilter(){
+  notAutoOnly=!notAutoOnly;
+  const btn=$("showAssetBtn");
+  if(btn)btn.setAttribute("aria-pressed",String(notAutoOnly));
+  currentPage=1;
+  render();
+}
+
 function getFilteredSorted(){
   const q=$("searchInput").value.trim().toLowerCase();
   /* 资产表字段也参与搜索：备注 / 分组 / 最后在线 / MAC / 内网 IP / 登录 IP / 资产计算机名 */
@@ -495,6 +502,7 @@ function getFilteredSorted(){
     &&(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
     &&(!emptyOutlookOnly||safe(d.outlook_account).trim()==="")
+    &&(!notAutoOnly||!isAutoReport(d.script_version))
     &&(!duplicates||duplicates.has(safe(d.computer_name).trim().toUpperCase()))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
@@ -667,12 +675,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   const agentBtn=$("showAgentBtn"),assetBtn=$("showAssetBtn");
   if(agentBtn)agentBtn.addEventListener("click",()=>setSourceFilter("agent"));
-  if(assetBtn)assetBtn.addEventListener("click",()=>setSourceFilter("asset"));
+  if(assetBtn)assetBtn.addEventListener("click",setNotAutoFilter);
   const unreportedBtn=$("showUnreportedBtn");
   if(unreportedBtn)unreportedBtn.addEventListener("click",()=>{
     showUnreportedOnly=!showUnreportedOnly;
     sourceFilter="";
-    ["showAgentBtn","showAssetBtn"].forEach(id=>{const btn=$(id);if(btn)btn.setAttribute("aria-pressed","false")});
+    ["showAgentBtn"].forEach(id=>{const btn=$(id);if(btn)btn.setAttribute("aria-pressed","false")});
     unreportedBtn.setAttribute("aria-pressed",String(showUnreportedOnly));
     currentPage=1;render();
   });

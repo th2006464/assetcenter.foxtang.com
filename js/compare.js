@@ -70,6 +70,7 @@ function parseStd(rows, headerAt) {
      标准版向日葵导出没有这一列 —— 它的「备注」是自由文本（可能写序列号，也可能写 "-" 或资产编号），
      不能拿当序列号用，否则会有误匹配。没有序列号列时，就纯按计算机名对比。 */
   const iSn = colOf(header, ["硬件序列号", "序列号", "SerialNumber", "Serial", "SN"]);
+  const iNote = colOf(header, ["备注"]);
   /* 新版向日葵导出自带「自动化脚本已配置」列 —— 这是权威判定源，优先用它 */
   const iAuto = colOf(header, ["自动化脚本已配置", "自动化脚本版本", "脚本版本"]);
   const out = [];
@@ -82,7 +83,7 @@ function parseStd(rows, headerAt) {
     const autoCfg = iAuto >= 0 ? cell(r, iAuto) : "";
     out.push({
       cn, dev: cell(r, iDev), status: cell(r, iStatus), group: cell(r, iGroup),
-      os: cell(r, iOs), last: cell(r, iLast), sn: cell(r, iSn),
+      os: cell(r, iOs), last: cell(r, iLast), sn: cell(r, iSn), note: cell(r, iNote),
       /* #N/A / 空 视为「未配置」 */
       autoCfg: (autoCfg && autoCfg.toUpperCase() !== "#N/A") ? autoCfg : ""
     });
@@ -359,6 +360,7 @@ function compare() {
   const map = new Map();          /* 按计算机名索引 */
   const mapSn = new Map();        /* 按硬件序列号索引 —— 计算机名对不上时的兜底 */
   const all = new Map();          /* 同名记录的全部脚本版本，用于提示重名 */
+  const snCounts = new Map();     /* SN 重复时禁止凭 SN 自动关联 */
   const newer = (a, b) =>
     ((a ? a.getTime() : -Infinity) > (b ? b.getTime() : -Infinity));
   state.acRows.forEach(d => {
@@ -371,6 +373,7 @@ function compare() {
 
     const sk = safe(d.sn).trim().toUpperCase();
     if (sk) {
+      snCounts.set(sk, (snCounts.get(sk) || 0) + 1);
       const p2 = mapSn.get(sk);
       if (!p2 || newer(parseDate(d.report), parseDate(p2.report))) mapSn.set(sk, d);
     }
@@ -385,15 +388,26 @@ function compare() {
   const matchBy = { cn: 0, sn: 0, none: 0 };
   state.results = state.stdRows.map(s => {
     const k = s.cn.toUpperCase();
-    /* 先按计算机名对；对不上再用硬件序列号兜底（向日葵的计算机名偶尔和资产系统不一致） */
-    let hit = null;
-    const snKey = safe(s.sn).trim().toUpperCase();
-    if (snKey) hit = mapSn.get(snKey) || null;
-    if (!hit) hit = map.get(k) || null;
-    let via = hit ? (snKey && safe(hit.sn).trim().toUpperCase() === snKey ? "sn" : "cn") : "none";
-    if (!hit && s.sn) {
-      const h2 = mapSn.get(s.sn.trim().toUpperCase());
-      if (h2) { hit = h2; via = "sn"; }
+    /* 优先使用明确 SN；标准向日葵 CSV 无 SN 列时，备注可能为「资产编号-SN」。
+       只允许备注中提取的 SN 与 Agent 实际 SN 完全一致且唯一，不做模糊匹配。 */
+    const directSn = safe(s.sn).trim().toUpperCase();
+    const note = safe(s.note).trim().toUpperCase();
+    const candidates = [directSn];
+    if (!directSn && /^[A-Z0-9]+-[A-Z0-9]{8,}$/.test(note)) {
+      candidates.push(note.slice(note.lastIndexOf("-") + 1));
+    }
+    let hit = null, via = "none";
+    for (const candidate of candidates) {
+      if (candidate && snCounts.get(candidate) === 1 && mapSn.has(candidate)) {
+        hit = mapSn.get(candidate);
+        via = "sn";
+        break;
+      }
+    }
+    /* SN 未命中时才按计算机名匹配；明确 SN 冲突时不强行关联。 */
+    if (!hit && !directSn) {
+      hit = map.get(k) || null;
+      if (hit) via = "cn";
     }
     matchBy[via]++;
 

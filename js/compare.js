@@ -403,7 +403,8 @@ function compare() {
     const deviceName = safe(s.dev).trim();
     const devicePrefix = deviceName.includes("-") ? deviceName.split("-")[0].trim().toUpperCase() : "";
     const namedAgent = devicePrefix && nameCounts.get(devicePrefix) === 1 ? map.get(devicePrefix) : null;
-    const agentCn = diagnosticAgent ? diagnosticAgent.cn : (namedAgent ? namedAgent.cn : (hit ? hit.cn : ""));
+    const identifiedAgent = diagnosticAgent || namedAgent || hit;
+    const agentCn = identifiedAgent ? identifiedAgent.cn : "";
     const nameMismatch = !!agentCn && agentCn.toUpperCase() !== k;
     matchBy[via]++;
 
@@ -412,9 +413,9 @@ function compare() {
     const dup = versions.length > 1;
 
     /* 以 Agent 上报的脚本版本判断运行模式；向日葵配置列不是版本号。 */
-    const script = hit ? safe(hit.script).trim() : "";
-    const verdict = hit ? scriptVerdict(script) : "missing";
-    if (useStdCol && hit) {
+    const script = identifiedAgent ? safe(identifiedAgent.script).trim() : "";
+    const verdict = identifiedAgent ? scriptVerdict(script) : "missing";
+    if (useStdCol && identifiedAgent) {
       crossChecked++;
       const stdConfigured = /^(是|已配置|true|yes|1)$/i.test(s.autoCfg || "");
       if (stdConfigured && verdict === "missing") disagree++;
@@ -526,8 +527,8 @@ function renderTable() {
   /* 底部说明：判定依据 + 交叉核对结果 + 资产表多出来的设备 */
   const notes = [`判定依据：${escapeHtml(state.source)}`];
   const m = state.matchBy;
-  notes.push(`匹配：按计算机名 ${m.cn} 台 · 未匹配 ${m.none} 台（序列号仅辅助显示 Agent 名称，不参与脚本判定）`);
-  if (m.none) notes.push(`未匹配的 ${m.none} 台按「异常：无脚本版本」处理`);
+  notes.push(`计算机名直接匹配 ${m.cn} 台 · 未直接匹配 ${m.none} 台；可唯一识别的 Agent 使用实际上报脚本版本，名称差异单独标记`);
+  if (m.none) notes.push(`无法通过计算机名、序列号或唯一设备名称识别 Agent 的设备才按「异常：无脚本版本」处理`);
   if (state.disagree > 0) {
     notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），以 Agent 脚本版本为准`);
   }
@@ -551,7 +552,7 @@ function renderTable() {
       ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
       : "";
     return `<tr>
-      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}${r.nameMismatch ? ' <span class="dup-flag" title="向日葵计算机名与 Agent 实际上报的计算机名不一致，请检查向日葵记录">名称不一致</span>' : ""}</td>
+      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}${r.nameMismatch ? ' <span class="dup-flag" title="已关联 Agent 上报记录，但向日葵计算机名与 Agent 计算机名不一致，请检查向日葵记录">名称不一致</span>' : ""}</td>
       <td class="mono">${r.agentCn ? escapeHtml(r.agentCn) : "—"}</td>
       <td>${escapeHtml(r.dev || "—")}</td>
       <td><span class="status-pill ${stCls}">${escapeHtml(r.status || "—")}</span></td>

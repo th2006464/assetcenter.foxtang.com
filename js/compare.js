@@ -277,7 +277,7 @@ function tryFinalize() {
       if (state.tab === "now" && c.now === 0) state.tab = "all";
     }
 
-    $("guideBox").hidden = true;
+    if ($("guideBox")) $("guideBox").hidden = true;
     $("statGrid").hidden = false;
     $("resultPanel").hidden = false;
     render();
@@ -337,7 +337,7 @@ function resetAll(){
     const input = $("file" + (slot === "std" ? "Std" : "Ac"));
     if (input) input.value = "";
   });
-  $("guideBox").hidden = false;
+  if ($("guideBox")) $("guideBox").hidden = false;
   $("statGrid").hidden = true;
   $("resultPanel").hidden = true;
   hideMsg();

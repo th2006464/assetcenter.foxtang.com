@@ -387,27 +387,18 @@ function compare() {
   const matchBy = { cn: 0, sn: 0, none: 0 };
   state.results = state.stdRows.map(s => {
     const k = s.cn.toUpperCase();
-    /* 优先使用明确 SN；标准向日葵 CSV 无 SN 列时，备注可能为「资产编号-SN」。
-       只允许备注中提取的 SN 与 Agent 实际 SN 完全一致且唯一，不做模糊匹配。 */
+    /* 唯一判定键：向日葵计算机名。SN 仅用于提示可能的 Agent 名称，不参与判定。 */
+    const hit = map.get(k) || null;
+    const via = hit ? "cn" : "none";
     const directSn = safe(s.sn).trim().toUpperCase();
     const note = safe(s.note).trim().toUpperCase();
-    const candidates = [directSn];
-    if (!directSn && /^[A-Z0-9]+-[A-Z0-9]{8,}$/.test(note)) {
-      candidates.push(note.slice(note.lastIndexOf("-") + 1));
-    }
-    let hit = null, via = "none";
-    for (const candidate of candidates) {
-      if (candidate && snCounts.get(candidate) === 1 && mapSn.has(candidate)) {
-        hit = mapSn.get(candidate);
-        via = "sn";
-        break;
-      }
-    }
-    /* SN 未命中时才按计算机名匹配；明确 SN 冲突时不强行关联。 */
-    if (!hit && !directSn) {
-      hit = map.get(k) || null;
-      if (hit) via = "cn";
-    }
+    const noteSn = /^[A-Z0-9]+-[A-Z0-9]{8,}$/.test(note)
+      ? note.slice(note.lastIndexOf("-") + 1) : "";
+    const diagnosticSn = directSn || noteSn;
+    const diagnosticAgent = diagnosticSn && snCounts.get(diagnosticSn) === 1
+      ? mapSn.get(diagnosticSn) : null;
+    const agentCn = hit ? hit.cn : (diagnosticAgent ? diagnosticAgent.cn : "");
+    const nameMismatch = !!agentCn && agentCn.toUpperCase() !== k;
     matchBy[via]++;
 
     const versions = all.get(k) || [];
@@ -428,7 +419,7 @@ function compare() {
     const suggestion = verdict === "ok" ? "ok"
       : (online ? "now" : "later");
     return Object.assign({}, s, {
-      script, verdict, dup, versions: uniqueV, online, suggestion, via
+      script, verdict, dup, versions: uniqueV, online, suggestion, via, agentCn, nameMismatch
     });
   });
 
@@ -505,7 +496,7 @@ function visibleRows() {
   });
   if (q) {
     rows = rows.filter(r =>
-      [r.cn, r.dev, r.group, r.status, r.os, r.script].some(v => safe(v).toLowerCase().includes(q)));
+      [r.cn, r.agentCn, r.dev, r.group, r.status, r.os, r.script].some(v => safe(v).toLowerCase().includes(q)));
   }
   rows.sort((a, b) => {
     let av, bv;
@@ -529,13 +520,8 @@ function renderTable() {
   /* 底部说明：判定依据 + 交叉核对结果 + 资产表多出来的设备 */
   const notes = [`判定依据：${escapeHtml(state.source)}`];
   const m = state.matchBy;
-  /* 有专门的序列号列才提「按序列号」；没有的话这行只说计算机名，免得让人以为还有别的匹配手段 */
-  notes.push(state.stdSnColName
-    ? `匹配：按计算机名 ${m.cn} 台 · 按序列号 ${m.sn} 台 · 未匹配 ${m.none} 台`
-    : `匹配：按计算机名 ${m.cn} 台 · 未匹配 ${m.none} 台（导出无序列号列，纯按计算机名对比）`);
-  if (!state.stdSnColName && m.none) {
-    notes.push(`未匹配的 ${m.none} 台：资产数据里查无此计算机名，按「从未上报」处理`);
-  }
+  notes.push(`匹配：按计算机名 ${m.cn} 台 · 未匹配 ${m.none} 台（序列号仅辅助显示 Agent 名称，不参与脚本判定）`);
+  if (m.none) notes.push(`未匹配的 ${m.none} 台按「异常：无脚本版本」处理`);
   if (state.disagree > 0) {
     notes.push(`向日葵与资产表判定不一致 ${state.disagree} 台（共交叉核对 ${state.crossChecked} 台），以 Agent 脚本版本为准`);
   }
@@ -544,7 +530,7 @@ function renderTable() {
   $("extraNote").innerHTML = notes.join(" · ");
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="9" class="empty-state">没有匹配的设备</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="empty-state">没有匹配的设备</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => {
@@ -558,12 +544,8 @@ function renderTable() {
     const dupFlag = r.dup
       ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
       : "";
-    /* 计算机名没对上、靠硬件序列号匹配到的，标一下，方便核对 */
-    const viaFlag = r.via === "sn"
-      ? ` <span class="dup-flag sn-hit" title="计算机名在资产数据里查不到，已改用硬件序列号 ${escapeHtml(r.sn)} 匹配">按序列号</span>`
-      : "";
     return `<tr>
-      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}${viaFlag}</td>
+      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}</td>\n      <td class="mono">${r.agentCn ? escapeHtml(r.agentCn) + (r.nameMismatch ? ' <span class="dup-flag" title="序列号辅助关联：计算机名不同；仍按计算机名判定脚本状态">名称不一致</span>' : "") : "—"}</td>
       <td>${escapeHtml(r.dev || "—")}</td>
       <td><span class="status-pill ${stCls}">${escapeHtml(r.status || "—")}</span></td>
       <td>${escapeHtml(r.group || "—")}</td>
@@ -588,10 +570,10 @@ function render() {
 /* ---------- 导出 / 复制 ---------- */
 function exportCsv() {
   const rows = visibleRows();
-  const head = ["计算机名", "设备名称", "状态", "分组", "系统版本", "最后在线时间", "脚本版本", "判定", "处理建议"];
+  const head = ["向日葵计算机名", "Agent计算机名", "设备名称", "状态", "分组", "系统版本", "最后在线时间", "脚本版本", "判定", "处理建议"];
   const esc = v => `"${safe(v).replaceAll('"', '""')}"`;
   const csv = [head.map(esc).join(",")]
-    .concat(rows.map(r => [r.cn, r.dev, r.status, r.group, r.os, r.last, r.script, VERDICT[r.verdict].text, SUGGEST[r.suggestion].text].map(esc).join(",")))
+    .concat(rows.map(r => [r.cn, r.agentCn, r.dev, r.status, r.group, r.os, r.last, r.script, VERDICT[r.verdict].text, SUGGEST[r.suggestion].text].map(esc).join(",")))
     .join("\r\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob), a = document.createElement("a");

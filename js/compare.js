@@ -480,9 +480,9 @@ function renderStats() {
   $("stLater").textContent = c.later;
   $("stLaterNote").textContent = "离线，待上线处理";
   $("nMissing").textContent = c.missing;
-  $("nNonauto").textContent = c.nonauto;
+  $("nNonauto").textContent = state.results.filter(r => r.online && r.verdict === "missing").length;
   $("nNow").textContent = c.now;
-  $("nLater").textContent = c.later;
+  $("nLater").textContent = state.results.filter(r => safe(r.group).trim() !== "未初始化").length;
   $("nOk").textContent = c.ok;
   $("nAll").textContent = c.all;
 }
@@ -492,11 +492,11 @@ function visibleRows() {
   let rows = state.results.filter(r => {
     const f = state.filters;
     if (!f.size || f.has("all")) return true;
-    /* 在线/离线为状态维度，其余为脚本维度；不同维度取交集。 */
-    const statusFilters = ["now", "later"].filter(x => f.has(x));
-    const scriptFilters = ["missing", "nonauto", "ok"].filter(x => f.has(x));
-    const statusMatch = !statusFilters.length || statusFilters.some(x =>
-      x === "now" ? r.online : !r.online);
+    /* 复选：在线待配置=在线且未安装脚本；排除未初始化=独立排除条件。 */
+    if (f.has("later") && safe(r.group).trim() === "未初始化") return false;
+    if (f.has("nonauto") && !(r.online && r.verdict === "missing")) return false;
+    const statusMatch = !f.has("now") || r.online;
+    const scriptFilters = ["missing", "ok"].filter(x => f.has(x));
     const scriptMatch = !scriptFilters.length || scriptFilters.includes(r.verdict);
     return statusMatch && scriptMatch;
   });

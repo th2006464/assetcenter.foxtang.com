@@ -360,10 +360,12 @@ function compare() {
   const mapSn = new Map();        /* 按硬件序列号索引 —— 计算机名对不上时的兜底 */
   const all = new Map();          /* 同名记录的全部脚本版本，用于提示重名 */
   const snCounts = new Map();     /* SN 重复时禁止凭 SN 自动关联 */
+  const nameCounts = new Map();   /* 设备名称辅助识别时要求 Agent 计算机名唯一 */
   const newer = (a, b) =>
     ((a ? a.getTime() : -Infinity) > (b ? b.getTime() : -Infinity));
   state.acRows.forEach(d => {
     const k = d.cn.toUpperCase();
+    nameCounts.set(k, (nameCounts.get(k) || 0) + 1);
     if (!all.has(k)) all.set(k, []);
     all.get(k).push(d.script || "—");
 
@@ -398,7 +400,10 @@ function compare() {
     const diagnosticAgent = diagnosticSn && snCounts.get(diagnosticSn) === 1
       ? mapSn.get(diagnosticSn) : null;
     /* 展示真实设备身份时优先使用唯一 SN 对应的 Agent，避免同名旧记录遮蔽改名设备。 */
-    const agentCn = diagnosticAgent ? diagnosticAgent.cn : (hit ? hit.cn : "");
+    const deviceName = safe(s.dev).trim();
+    const devicePrefix = deviceName.includes("-") ? deviceName.split("-")[0].trim().toUpperCase() : "";
+    const namedAgent = devicePrefix && nameCounts.get(devicePrefix) === 1 ? map.get(devicePrefix) : null;
+    const agentCn = diagnosticAgent ? diagnosticAgent.cn : (namedAgent ? namedAgent.cn : (hit ? hit.cn : ""));
     const nameMismatch = !!agentCn && agentCn.toUpperCase() !== k;
     matchBy[via]++;
 

@@ -31,7 +31,7 @@ const state = {
   prevFail: null,                      /* 上一次比对时「未装」的计算机名；用于推送后刷新时算差值 */
   delta: null,                         /* { fixed:[], remain, remainNow } */
   results: [],
-  tab: "now", q: "",                  /* 默认停在「可立即推送」 */
+  tab: "all", filters: new Set(), q: "",                  /* 默认停在「可立即推送」 */
   sortKey: "cn", sortAsc: true
 };
 
@@ -270,11 +270,11 @@ function tryFinalize() {
     const c = counts();
     if (state.delta) {
       /* 推送后的刷新：焦点放在「还剩哪些」，并报告这一次新装上了几台 */
-      state.tab = c.now > 0 ? "now" : "fail";
+      state.filters = new Set();
       showDelta();
     } else {
       /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未获取脚本」避免空白 */
-      if (state.tab === "now" && c.now === 0) state.tab = "all";
+      /* 保留用户已选的复选筛选条件。 */
     }
 
     if ($("guideBox")) $("guideBox").hidden = true;
@@ -329,7 +329,7 @@ function resetAll(){
   state.stdRows = []; state.acRows = []; state.acCsvRows = []; state.results = []; state.extra = 0;
   state.stdSkipped = 0; state.stdSnColName = ""; state.matchBy = { cn: 0, sn: 0, none: 0 }; state.disagree = 0; state.crossChecked = 0;
   state.prevFail = null; state.delta = null;
-  state.tab = "now"; state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
+  state.tab = "all"; state.filters = new Set(); state.q = ""; state.sortKey = "cn"; state.sortAsc = true;
   const search = $("searchInput"); if (search) search.value = "";
   ["std","ac"].forEach(slot => {
     setSlot(slot, "", "", false);
@@ -490,16 +490,15 @@ function renderStats() {
 function visibleRows() {
   const q = state.q.trim().toLowerCase();
   let rows = state.results.filter(r => {
-    switch (state.tab) {
-      case "all":    return true;
-      case "fail":   return r.verdict !== "ok";
-      case "now":    return r.online;
-      case "later":  return r.suggestion === "later";
-      case "ok":     return r.verdict === "ok";
-      case "missing": return r.verdict === "missing";
-      case "nonauto": return r.verdict === "nonauto";
-      default: return true;
-    }
+    const f = state.filters;
+    if (!f.size || f.has("all")) return true;
+    /* 在线/离线为状态维度，其余为脚本维度；不同维度取交集。 */
+    const statusFilters = ["now", "later"].filter(x => f.has(x));
+    const scriptFilters = ["missing", "nonauto", "ok"].filter(x => f.has(x));
+    const statusMatch = !statusFilters.length || statusFilters.some(x =>
+      x === "now" ? r.online : !r.online);
+    const scriptMatch = !scriptFilters.length || scriptFilters.includes(r.verdict);
+    return statusMatch && scriptMatch;
   });
   if (q) {
     rows = rows.filter(r =>
@@ -570,7 +569,7 @@ function render() {
   renderStats();
   renderTable();
   document.querySelectorAll("#tabs .tab").forEach(t =>
-    t.classList.toggle("active", t.dataset.tab === state.tab));
+    t.classList.toggle("active", state.filters.has(t.dataset.tab) || (!state.filters.size && t.dataset.tab === "all")));
   document.querySelectorAll("#compareTable th[data-key]").forEach(th =>
     th.classList.toggle("sorted", th.dataset.key === state.sortKey));
 }
@@ -634,7 +633,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   $("searchInput").addEventListener("input", e => { state.q = e.target.value; renderTable(); });
   document.querySelectorAll("#tabs .tab").forEach(t => t.addEventListener("click", () => {
-    state.tab = t.dataset.tab; render();
+    const key = t.dataset.tab;
+    if (key === "all") state.filters.clear();
+    else if (state.filters.has(key)) state.filters.delete(key);
+    else state.filters.add(key);
+    render();
   }));
   document.querySelectorAll("#compareTable th[data-key]").forEach(th => th.addEventListener("click", () => {
     const k = th.dataset.key;
@@ -643,11 +646,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     render();
   }));
   $("exportBtn").addEventListener("click", exportCsv);
-  $("copyBtn").addEventListener("click", copyNames);
+
   const resetBtn = $("resetBtn");
   if (resetBtn) resetBtn.addEventListener("click", resetAll);
   const apiBtn = $("apiRefreshBtn");
   if (apiBtn) apiBtn.addEventListener("click", () => refreshAndRecheck());
-  const recheckBtn = $("recheckBtn");
-  if (recheckBtn) recheckBtn.addEventListener("click", () => refreshAndRecheck());
+
 });

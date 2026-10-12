@@ -7,6 +7,7 @@ let activeFilter = null;   /* {key,value}，来自看板下钻的 ?filter= 参�
 let sourceFilter = "";       /* "agent" / "asset" / 空串 */
 let showUnreportedOnly = false; /* 向日葵独有记录独立视图 */
 let duplicateNameOnly = false; /* 仅查看合并后计算机名重复的独立记录 */
+let emptyOutlookOnly = false; /* 仅查看 Outlook 邮箱为空的设备 */
 
 /* ---------- 列显隐（勾选即隐藏，选择记在本地） ---------- */
 const HIDE_COLS_KEY = "asset-center-hidden-cols-v1";
@@ -493,6 +494,7 @@ function getFilteredSorted(){
   let rows=allDevices.filter(d=>(showUnreportedOnly?!asBool(d.has_agent):asBool(d.has_agent))
     &&(!q||keys.some(k=>safe(d[k]).toLowerCase().includes(q)))
     &&matchesFilter(d,activeFilter)
+    &&(!emptyOutlookOnly||safe(d.outlook_account).trim()==="")
     &&(!duplicates||duplicates.has(safe(d.computer_name).trim().toUpperCase()))
     &&(!sourceFilter||asBool(d[sourceFilter==="agent"?"has_agent":"has_asset"])));
   rows.sort((a,b)=>{
@@ -681,7 +683,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     currentPage=1;
     render();
   });
-  const sunInput=$("sunFileInput");
+  const emptyOutlookBtn=$("showEmptyOutlookBtn");
+   if(emptyOutlookBtn)emptyOutlookBtn.addEventListener("click",()=>{
+     emptyOutlookOnly=!emptyOutlookOnly;
+     emptyOutlookBtn.setAttribute("aria-pressed",String(emptyOutlookOnly));
+     currentPage=1;
+     render();
+   });
+   const sunInput=$("sunFileInput");
   const importBtn=$("importSunBtn");
   if(importBtn&&sunInput){
     importBtn.addEventListener("click",()=>sunInput.click());

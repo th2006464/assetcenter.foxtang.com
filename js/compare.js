@@ -4,10 +4,11 @@
 const VERDICT = {
   ok:      { text: "自动上传",   cls: "ok" },
   missing: { text: "异常：无脚本版本",    cls: "missing" },
-  nonauto: { text: "手动上传 · 可升级",   cls: "nonauto" }
+  nonauto: { text: "手动上传 · 可升级",   cls: "nonauto" },
+  unmatched: { text: "未匹配 Agent", cls: "missing" }
 };
 /* 排序时的优先级：越需要跟进的排越前 */
-const VERDICT_RANK = { missing: 0, nonauto: 1, ok: 2 };
+const VERDICT_RANK = { unmatched: 0, missing: 1, nonauto: 2, ok: 3 };
 function scriptVerdict(v){return !hasScriptVersion(v)?"missing":isAutoReport(v)?"ok":"nonauto"}
 
 /* 处理建议：在线未装 → 现在就能推；离线未装 → 等上线再推 */
@@ -273,7 +274,7 @@ function tryFinalize() {
       showDelta();
     } else {
       /* 默认停在「可立即推送」；若一台都没有（例如全离线），退回「未获取脚本」避免空白 */
-      if (state.tab === "now" && c.now === 0) state.tab = "fail";
+      if (state.tab === "now" && c.now === 0) state.tab = "all";
     }
 
     $("guideBox").hidden = true;
@@ -385,8 +386,11 @@ function compare() {
   state.results = state.stdRows.map(s => {
     const k = s.cn.toUpperCase();
     /* 先按计算机名对；对不上再用硬件序列号兜底（向日葵的计算机名偶尔和资产系统不一致） */
-    let hit = map.get(k) || null;
-    let via = hit ? "cn" : "none";
+    let hit = null;
+    const snKey = safe(s.sn).trim().toUpperCase();
+    if (snKey) hit = mapSn.get(snKey) || null;
+    if (!hit) hit = map.get(k) || null;
+    let via = hit ? (snKey && safe(hit.sn).trim().toUpperCase() === snKey ? "sn" : "cn") : "none";
     if (!hit && s.sn) {
       const h2 = mapSn.get(s.sn.trim().toUpperCase());
       if (h2) { hit = h2; via = "sn"; }
@@ -399,7 +403,7 @@ function compare() {
 
     /* 以 Agent 上报的脚本版本判断运行模式；向日葵配置列不是版本号。 */
     const script = hit ? safe(hit.script).trim() : "";
-    const verdict = scriptVerdict(script);
+    const verdict = hit ? scriptVerdict(script) : "unmatched";
     if (useStdCol && hit) {
       crossChecked++;
       const stdConfigured = /^(是|已配置|true|yes|1)$/i.test(s.autoCfg || "");
@@ -428,7 +432,7 @@ function compare() {
     state.delta = {
       fixed: state.results.filter(r => r.justFixed).map(r => r.cn),
       remain: remain.length,
-      remainNow: remain.filter(r => r.suggestion === "now").length
+      remainNow: remain.filter(r => r.online).length
     };
   } else {
     state.delta = null;
@@ -441,13 +445,13 @@ function compare() {
 
 /* ---------- 渲染 ---------- */
 function counts() {
-  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, fail: 0, now: 0, later: 0 };
+  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, unmatched: 0, fail: 0, now: 0, later: 0 };
   state.results.forEach(r => {
     c[r.verdict]++;
-    if (r.suggestion === "now") c.now++;
+    if (r.online) c.now++;
     if (r.suggestion === "later") c.later++;
   });
-  c.fail = c.missing + c.nonauto;
+  c.fail = c.missing + c.nonauto + (c.unmatched || 0);
   return c;
 }
 
@@ -461,7 +465,7 @@ function renderStats() {
   $("stFail").textContent = c.fail;
   $("stFailNote").textContent = "占比 " + pct(c.fail, c.all) + " · 手动版可升级 / 空白需排查";
   $("stNow").textContent = c.now;
-  $("stNowNote").textContent = "在线，可升级或排查";
+  $("stNowNote").textContent = "向日葵状态为在线（不限脚本版本）";
   $("stLater").textContent = c.later;
   $("stLaterNote").textContent = "离线，待上线处理";
   $("nMissing").textContent = c.missing;
@@ -478,7 +482,7 @@ function visibleRows() {
     switch (state.tab) {
       case "all":    return true;
       case "fail":   return r.verdict !== "ok";
-      case "now":    return r.suggestion === "now";
+      case "now":    return r.online;
       case "later":  return r.suggestion === "later";
       case "ok":     return r.verdict === "ok";
       case "missing": return r.verdict === "missing";

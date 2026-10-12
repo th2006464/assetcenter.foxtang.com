@@ -358,7 +358,7 @@ function compare() {
      此时按**最近一次上报**取，不能按文件先后顺序取（那纯属偶然）。 */
   const map = new Map();          /* 按计算机名索引 */
   const mapSn = new Map();        /* 按硬件序列号索引 —— 计算机名对不上时的兜底 */
-  const all = new Map();          /* 同名记录的全部脚本版本，用于提示重名 */
+  const all = new Map();          /* 同名记录按硬件序列号归组，避免重复上报误报重名 */
   const snCounts = new Map();     /* SN 重复时禁止凭 SN 自动关联 */
   const nameCounts = new Map();   /* 设备名称辅助识别时要求 Agent 计算机名唯一 */
   const newer = (a, b) =>
@@ -367,7 +367,7 @@ function compare() {
     const k = d.cn.toUpperCase();
     nameCounts.set(k, (nameCounts.get(k) || 0) + 1);
     if (!all.has(k)) all.set(k, []);
-    all.get(k).push(d.script || "—");
+    all.get(k).push(d);
 
     const prev = map.get(k);
     if (!prev || newer(parseDate(d.report), parseDate(prev.report))) map.set(k, d);
@@ -408,9 +408,16 @@ function compare() {
     const nameMismatch = !!agentCn && agentCn.toUpperCase() !== k;
     matchBy[via]++;
 
-    const versions = all.get(k) || [];
-    const uniqueV = Array.from(new Set(versions));
-    const dup = versions.length > 1;
+    const sameName = all.get(k) || [];
+    const identities = new Map();
+    sameName.forEach(d => {
+      const sn = safe(d.sn).trim().toUpperCase();
+      if (!sn || ["-", "—", "UNKNOWN", "N/A", "NULL", "TO BE FILLED BY O.E.M."].includes(sn)) return;
+      const prev = identities.get(sn);
+      if (!prev || newer(parseDate(d.report), parseDate(prev.report))) identities.set(sn, d);
+    });
+    const dupDevices = Array.from(identities.values());
+    const dup = dupDevices.length > 1;
 
     /* 以 Agent 上报的脚本版本判断运行模式；向日葵配置列不是版本号。 */
     const script = identifiedAgent ? safe(identifiedAgent.script).trim() : "";
@@ -426,7 +433,7 @@ function compare() {
     const suggestion = verdict === "ok" ? "ok"
       : (online ? "now" : "later");
     return Object.assign({}, s, {
-      script, verdict, dup, versions: uniqueV, online, suggestion, via, agentCn, nameMismatch
+      script, verdict, dup, dupDevices, online, suggestion, via, agentCn, nameMismatch
     });
   });
 
@@ -546,9 +553,10 @@ function renderTable() {
     const scriptText = hasScriptVersion(r.script) ? escapeHtml(r.script) : "—";
     /* 在线/离线：离线设备现在推不了，是「待上线推送」的关键依据 */
     const stCls = r.online ? "online" : "offline";
-    /* 同名多台机器：把其它版本放到 title 里，并在版本号旁挂个角标 */
+    /* 只有同名对应多个不同有效序列号才提示；鼠标悬停展示可核查的设备信息 */
+    const dupDetails = (r.dupDevices || []).map(d => `SN: ${safe(d.sn)} | 版本: ${safe(d.script) || "—"} | 上报: ${safe(d.report) || "—"}`).join("\n");
     const dupFlag = r.dup
-      ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
+      ? ` <span class="dup-flag" title="${escapeHtml("Agent 中同名但不同序列号的设备：\n" + dupDetails)}">重名${r.dupDevices.length}</span>`
       : "";
     return `<tr>
       <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}${r.nameMismatch ? ' <span class="dup-flag" title="已关联 Agent 上报记录，但向日葵计算机名与 Agent 计算机名不一致，请检查向日葵记录">名称不一致</span>' : ""}</td>

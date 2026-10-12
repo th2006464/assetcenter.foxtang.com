@@ -107,7 +107,7 @@
         </div>
         <div class="search-wrap">
           <label for="searchInput">搜索</label>
-          <input id="searchInput" type="search" placeholder="计算机名 / 设备名称 / 分组 / 脚本版本" autocomplete="off">
+          <input id="searchInput" type="search" placeholder="向日葵计算机名 / Agent计算机名 / 设备名称 / 分组 / 脚本版本" autocomplete="off">
         </div>
         <div class="compare-actions">
           <button id="recheckBtn" class="btn btn-primary" type="button" title="重新读取资产数据，查看自动、手动和异常脚本状态">刷新并重新筛选</button>
@@ -120,7 +120,8 @@
         <table id="compareTable">
           <thead>
             <tr>
-              <th data-key="cn">计算机名<span class="sort-ind">▲▼</span></th>
+              <th data-key="cn">向日葵计算机名<span class="sort-ind">▲▼</span></th>
+              <th data-key="agentCn">Agent计算机名<span class="sort-ind">▲▼</span></th>
               <th data-key="dev">设备名称<span class="sort-ind">▲▼</span></th>
               <th data-key="status">状态<span class="sort-ind">▲▼</span></th>
               <th data-key="group">分组<span class="sort-ind">▲▼</span></th>
@@ -145,6 +146,6 @@
   </div>
 
   <script src="js/common.js?v=30"></script>
-  <script src="js/compare.js?v=31"></script>
+  <script src="js/compare.js?v=32"></script>
 </body>
 </html>

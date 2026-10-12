@@ -4,11 +4,10 @@
 const VERDICT = {
   ok:      { text: "自动上传",   cls: "ok" },
   missing: { text: "异常：无脚本版本",    cls: "missing" },
-  nonauto: { text: "手动上传 · 可升级",   cls: "nonauto" },
-  unmatched: { text: "未匹配 Agent", cls: "missing" }
+  nonauto: { text: "手动上传 · 可升级",   cls: "nonauto" }
 };
 /* 排序时的优先级：越需要跟进的排越前 */
-const VERDICT_RANK = { unmatched: 0, missing: 1, nonauto: 2, ok: 3 };
+const VERDICT_RANK = { missing: 0, nonauto: 1, ok: 2 };
 function scriptVerdict(v){return !hasScriptVersion(v)?"missing":isAutoReport(v)?"ok":"nonauto"}
 
 /* 处理建议：在线未装 → 现在就能推；离线未装 → 等上线再推 */
@@ -417,7 +416,7 @@ function compare() {
 
     /* 以 Agent 上报的脚本版本判断运行模式；向日葵配置列不是版本号。 */
     const script = hit ? safe(hit.script).trim() : "";
-    const verdict = hit ? scriptVerdict(script) : "unmatched";
+    const verdict = hit ? scriptVerdict(script) : "missing";
     if (useStdCol && hit) {
       crossChecked++;
       const stdConfigured = /^(是|已配置|true|yes|1)$/i.test(s.autoCfg || "");
@@ -459,13 +458,13 @@ function compare() {
 
 /* ---------- 渲染 ---------- */
 function counts() {
-  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, unmatched: 0, fail: 0, now: 0, later: 0 };
+  const c = { all: state.results.length, ok: 0, missing: 0, nonauto: 0, fail: 0, now: 0, later: 0 };
   state.results.forEach(r => {
     c[r.verdict]++;
     if (r.online) c.now++;
     if (r.suggestion === "later") c.later++;
   });
-  c.fail = c.missing + c.nonauto + (c.unmatched || 0);
+  c.fail = c.missing + c.nonauto;
   return c;
 }
 

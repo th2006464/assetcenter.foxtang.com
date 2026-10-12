@@ -397,7 +397,8 @@ function compare() {
     const diagnosticSn = directSn || noteSn;
     const diagnosticAgent = diagnosticSn && snCounts.get(diagnosticSn) === 1
       ? mapSn.get(diagnosticSn) : null;
-    const agentCn = hit ? hit.cn : (diagnosticAgent ? diagnosticAgent.cn : "");
+    /* 展示真实设备身份时优先使用唯一 SN 对应的 Agent，避免同名旧记录遮蔽改名设备。 */
+    const agentCn = diagnosticAgent ? diagnosticAgent.cn : (hit ? hit.cn : "");
     const nameMismatch = !!agentCn && agentCn.toUpperCase() !== k;
     matchBy[via]++;
 
@@ -545,7 +546,7 @@ function renderTable() {
       ? ` <span class="dup-flag" title="该计算机名在资产表里有 ${r.versions.length} 个不同脚本版本（${escapeHtml(r.versions.join(" / "))}），已按最近一次上报取值">重名${r.versions.length}</span>`
       : "";
     return `<tr>
-      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}</td>\n      <td class="mono">${r.agentCn ? escapeHtml(r.agentCn) + (r.nameMismatch ? ' <span class="dup-flag" title="序列号辅助关联：计算机名不同；仍按计算机名判定脚本状态">名称不一致</span>' : "") : "—"}</td>
+      <td class="mono"><strong>${escapeHtml(r.cn)}</strong>${dupFlag}</td>\n      <td class="mono">${r.agentCn ? escapeHtml(r.agentCn) + (r.nameMismatch ? ' <span class="dup-flag" title="序列号辅助识别的 Agent 计算机名与向日葵计算机名不同；脚本状态仍仅按计算机名判定">名称不一致</span>' : "") : "—"}</td>
       <td>${escapeHtml(r.dev || "—")}</td>
       <td><span class="status-pill ${stCls}">${escapeHtml(r.status || "—")}</span></td>
       <td>${escapeHtml(r.group || "—")}</td>

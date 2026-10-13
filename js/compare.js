@@ -488,7 +488,7 @@ function renderStats() {
   $("stLaterNote").textContent = "离线，待上线处理";
   $("nMissing").textContent = c.missing;
   $("nNonauto").textContent = state.results.filter(r => r.online && r.verdict === "missing").length;
-  $("nNow").textContent = c.now;
+  $("nNow").textContent = state.results.filter(r => !safe(r.script).toLowerCase().includes("auto")).length;
   $("nLater").textContent = state.results.filter(r => safe(r.group).trim() !== "未初始化").length;
   $("nOk").textContent = c.ok;
   $("nAll").textContent = c.all;
@@ -502,7 +502,7 @@ function visibleRows() {
     /* 复选：在线待配置=在线且未安装脚本；排除未初始化=独立排除条件。 */
     if (f.has("later") && safe(r.group).trim() === "未初始化") return false;
     if (f.has("nonauto") && !(r.online && r.verdict === "missing")) return false;
-    const statusMatch = !f.has("now") || r.online;
+    const statusMatch = !f.has("now") || !safe(r.script).toLowerCase().includes("auto");
     const scriptFilters = ["missing", "ok"].filter(x => f.has(x));
     const scriptMatch = !scriptFilters.length || scriptFilters.includes(r.verdict);
     return statusMatch && scriptMatch;
